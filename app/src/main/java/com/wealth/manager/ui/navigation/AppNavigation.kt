@@ -31,7 +31,6 @@ import com.wealth.manager.ui.achievements.AchievementsScreen
 import com.wealth.manager.ui.add.AddExpenseScreen
 import com.wealth.manager.ui.dashboard.DashboardScreen
 import com.wealth.manager.ui.insights.InsightsScreen
-import com.wealth.manager.ui.theme.Divider
 import com.wealth.manager.ui.theme.Primary
 import com.wealth.manager.ui.theme.Surface
 import com.wealth.manager.ui.theme.TextSecondary
@@ -51,16 +50,16 @@ val bottomNavItems = listOf(
         route = Screen.Dashboard.route
     ),
     BottomNavItem(
-        label = "添加",
-        selectedIcon = Icons.Filled.Add,
-        unselectedIcon = Icons.Outlined.Add,
-        route = Screen.Add.route
-    ),
-    BottomNavItem(
         label = "透视",
         selectedIcon = Icons.Filled.Insights,
         unselectedIcon = Icons.Outlined.Insights,
         route = Screen.Insights.route
+    ),
+    BottomNavItem(
+        label = "添加",
+        selectedIcon = Icons.Filled.Add,
+        unselectedIcon = Icons.Outlined.Add,
+        route = Screen.Add.route
     ),
     BottomNavItem(
         label = "成就",
@@ -110,8 +109,7 @@ fun AppNavigation() {
                             selectedTextColor = Primary,
                             unselectedIconColor = TextSecondary,
                             unselectedTextColor = TextSecondary,
-                            indicatorColor = Surface,
-                            dividerColor = Divider
+                            indicatorColor = Surface
                         )
                     )
                 }
@@ -124,33 +122,13 @@ fun AppNavigation() {
             modifier = Modifier.padding(paddingValues)
         ) {
             composable(Screen.Dashboard.route) {
-                DashboardScreen(
-                    onNavigateToAdd = {
-                        navController.navigate(Screen.Add.route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    }
-                )
-            }
-            composable(Screen.Add.route) {
-                AddExpenseScreen(
-                    onExpenseAdded = {
-                        navController.navigate(Screen.Dashboard.route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    }
-                )
+                DashboardScreen(onNavigateToAdd = { navController.navigate(Screen.Add.route) })
             }
             composable(Screen.Insights.route) {
                 InsightsScreen()
+            }
+            composable(Screen.Add.route) {
+                AddExpenseScreen(onExpenseAdded = { navController.popBackStack() })
             }
             composable(Screen.Achievements.route) {
                 AchievementsScreen()

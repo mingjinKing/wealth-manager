@@ -17,7 +17,7 @@ interface WeekStatsDao {
     suspend fun getWeekStatsByStartDate(weekStartDate: Long): WeekStatsEntity?
 
     @Query("SELECT * FROM week_stats ORDER BY weekStartDate DESC LIMIT :limit")
-    suspend fun getRecentWeekStats(limit: Int): List<WeekStatsEntity>
+    fun getRecentWeekStats(limit: Int): Flow<List<WeekStatsEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertWeekStats(weekStats: WeekStatsEntity)

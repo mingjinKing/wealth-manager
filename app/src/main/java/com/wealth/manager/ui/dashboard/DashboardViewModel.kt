@@ -7,12 +7,12 @@ import com.wealth.manager.data.dao.ExpenseDao
 import com.wealth.manager.data.dao.WeekStatsDao
 import com.wealth.manager.data.entity.CategoryEntity
 import com.wealth.manager.data.entity.ExpenseEntity
+import com.wealth.manager.data.entity.WeekStatsEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.Calendar
 import javax.inject.Inject
@@ -56,11 +56,11 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
-    private suspend fun calculateDashboardState(
+    private fun calculateDashboardState(
         currentWeekExpenses: List<ExpenseEntity>,
         lastWeekExpenses: List<ExpenseEntity>,
         categories: List<CategoryEntity>,
-        recentStats: List<com.wealth.manager.data.entity.WeekStatsEntity>
+        recentStats: List<WeekStatsEntity>
     ): DashboardState {
         val weeklyTotal = currentWeekExpenses.sumOf { it.amount }
         val lastWeekTotal = lastWeekExpenses.sumOf { it.amount }

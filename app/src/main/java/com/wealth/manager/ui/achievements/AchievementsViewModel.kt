@@ -31,7 +31,7 @@ class AchievementsViewModel @Inject constructor(
             _state.value = _state.value.copy(isLoading = true)
 
             val (weekStart, weekEnd) = getCurrentWeekRange()
-            val recentStats = weekStatsDao.getRecentWeekStats(4)
+            val recentStats = weekStatsDao.getRecentWeekStats(4).first()
 
             if (recentStats.isNotEmpty()) {
                 val currentWeek = recentStats.firstOrNull()
