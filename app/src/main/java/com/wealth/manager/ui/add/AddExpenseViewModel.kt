@@ -57,12 +57,12 @@ class AddExpenseViewModel @Inject constructor(
         }
     }
 
-    fun addExpense(amount: Double, categoryId: Long, note: String = "") {
+    fun addExpense(amount: Double, categoryId: Long, note: String = "", dateMillis: Long = getTodayStartMillis()) {
         viewModelScope.launch {
             val expense = ExpenseEntity(
                 amount = amount,
                 categoryId = categoryId,
-                date = getTodayStartMillis(),
+                date = dateMillis,
                 note = note
             )
             expenseDao.insertExpense(expense)
