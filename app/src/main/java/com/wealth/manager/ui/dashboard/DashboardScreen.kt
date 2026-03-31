@@ -184,7 +184,7 @@ fun DashboardScreen(
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(80.dp)) }
+            item { Spacer(modifier = Modifier.height(32.dp)) }
         }
 
         // Bottom Sheet: Edit / Delete

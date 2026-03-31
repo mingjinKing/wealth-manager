@@ -54,9 +54,7 @@ class DashboardViewModel @Inject constructor(
                     monthExpenses,
                     recent7DaysExpenses,
                     categories,
-                    recentStats,
-                    monthStart,
-                    monthEnd
+                    recentStats
                 )
             }.collect { newState ->
                 _state.value = newState
@@ -68,15 +66,13 @@ class DashboardViewModel @Inject constructor(
         monthExpenses: List<ExpenseEntity>,
         recent7DaysExpenses: List<ExpenseEntity>,
         categories: List<com.wealth.manager.data.entity.CategoryEntity>,
-        recentStats: List<com.wealth.manager.data.entity.WeekStatsEntity>,
-        monthStart: Long,
-        monthEnd: Long
+        recentStats: List<com.wealth.manager.data.entity.WeekStatsEntity>
     ): DashboardState {
         val monthTotal = monthExpenses.sumOf { it.amount }
         val recent7DaysTotal = recent7DaysExpenses.sumOf { it.amount }
 
-        // Group ALL days of current month (not just days with expenses)
-        val dailyExpenses = groupMonthDaysByDay(monthExpenses, categories, monthStart, monthEnd)
+        // Group expenses by day (only show days with expenses)
+        val dailyExpenses = groupExpensesByDay(monthExpenses, categories)
 
         // Wow calculation based on 4-week average
         val avgLast4Weeks = recentStats.take(4).map { it.totalAmount }.average()
