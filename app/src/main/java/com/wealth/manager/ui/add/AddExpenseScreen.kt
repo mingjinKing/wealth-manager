@@ -15,9 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
@@ -26,18 +24,14 @@ import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -48,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
@@ -78,7 +73,27 @@ fun AddExpenseScreen(
     var selectedDateMillis by remember { mutableLongStateOf(getTodayStartMillis()) }
     var showDatePicker by remember { mutableStateOf(false) }
 
-    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDateMillis)
+    // 日期选择弹窗（使用Android原生DatePicker，支持中文月份）
+    if (showDatePicker) {
+        val calendar = Calendar.getInstance().apply { timeInMillis = selectedDateMillis }
+        val listener = android.app.DatePickerDialog.OnDateSetListener { _, year, month, dayOfMonth ->
+            val cal = Calendar.getInstance().apply {
+                set(year, month, dayOfMonth, 0, 0, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+            selectedDateMillis = cal.timeInMillis
+        }
+        val dialog = android.app.DatePickerDialog(
+            LocalContext.current,
+            listener,
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
+        )
+        dialog.setOnDismissListener { showDatePicker = false }
+        dialog.show()
+        showDatePicker = false
+    }
 
     LaunchedEffect(expenseToEdit) {
         if (expenseToEdit != null) {
@@ -128,7 +143,7 @@ fun AddExpenseScreen(
                         Text(
                             text = formatDateLabel(selectedDateMillis),
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Primary,
+                            color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Medium
                         )
                     }
@@ -264,29 +279,30 @@ fun AddExpenseScreen(
             }
         }
 
-        // 日期选择弹窗
+        // 日期选择弹窗（使用Android原生DatePicker，支持中文月份）
         if (showDatePicker) {
-            DatePickerDialog(
-                onDismissRequest = { showDatePicker = false },
-                confirmButton = {
-                    TextButton(onClick = {
-                        datePickerState.selectedDateMillis?.let { millis ->
-                            selectedDateMillis = millis
-                        }
-                        showDatePicker = false
-                    }) { Text("确定") }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showDatePicker = false }) { Text("取消") }
+            val calendar = Calendar.getInstance().apply { timeInMillis = selectedDateMillis }
+            val listener = android.app.DatePickerDialog.OnDateSetListener { _, year, month, dayOfMonth ->
+                val cal = Calendar.getInstance().apply {
+                    set(year, month, dayOfMonth, 0, 0, 0)
+                    set(Calendar.MILLISECOND, 0)
                 }
-            ) {
-                DatePicker(state = datePickerState)
+                selectedDateMillis = cal.timeInMillis
+                showDatePicker = false
             }
+            val dialog = android.app.DatePickerDialog(
+                LocalContext.current,
+                listener,
+                calendar.get(Calendar.YEAR),
+                calendar.get(Calendar.MONTH),
+                calendar.get(Calendar.DAY_OF_MONTH)
+            )
+            dialog.setOnDismissListener { showDatePicker = false }
+            dialog.show()
+            showDatePicker = false  // prevent recomposition
         }
     }
 }
-
-private fun formatDateLabel(millis: Long): String {
     val today = getTodayStartMillis()
     val yesterday = today - 24 * 60 * 60 * 1000
     return when (millis) {

@@ -54,7 +54,9 @@ class DashboardViewModel @Inject constructor(
                     monthExpenses,
                     recent7DaysExpenses,
                     categories,
-                    recentStats
+                    recentStats,
+                    monthStart,
+                    monthEnd
                 )
             }.collect { newState ->
                 _state.value = newState
@@ -66,13 +68,15 @@ class DashboardViewModel @Inject constructor(
         monthExpenses: List<ExpenseEntity>,
         recent7DaysExpenses: List<ExpenseEntity>,
         categories: List<com.wealth.manager.data.entity.CategoryEntity>,
-        recentStats: List<com.wealth.manager.data.entity.WeekStatsEntity>
+        recentStats: List<com.wealth.manager.data.entity.WeekStatsEntity>,
+        monthStart: Long,
+        monthEnd: Long
     ): DashboardState {
         val monthTotal = monthExpenses.sumOf { it.amount }
         val recent7DaysTotal = recent7DaysExpenses.sumOf { it.amount }
 
-        // Group recent 7 days expenses by day
-        val dailyExpenses = groupExpensesByDay(recent7DaysExpenses, categories)
+        // Group ALL days of current month (not just days with expenses)
+        val dailyExpenses = groupMonthDaysByDay(monthExpenses, categories, monthStart, monthEnd)
 
         // Wow calculation based on 4-week average
         val avgLast4Weeks = recentStats.take(4).map { it.totalAmount }.average()
@@ -97,49 +101,61 @@ class DashboardViewModel @Inject constructor(
         )
     }
 
-    private fun groupExpensesByDay(
+    private fun groupMonthDaysByDay(
         expenses: List<ExpenseEntity>,
-        categories: List<com.wealth.manager.data.entity.CategoryEntity>
+        categories: List<com.wealth.manager.data.entity.CategoryEntity>,
+        monthStart: Long,
+        monthEnd: Long
     ): List<DailyExpense> {
         val categoryMap = categories.associateBy { it.id }
         val today = getTodayStartMillis()
         val yesterday = today - 24 * 60 * 60 * 1000
 
-        return expenses
-            .groupBy { expense ->
-                // Normalize to start of day
-                val cal = Calendar.getInstance()
-                cal.timeInMillis = expense.date
-                cal.set(Calendar.HOUR_OF_DAY, 0)
-                cal.set(Calendar.MINUTE, 0)
-                cal.set(Calendar.SECOND, 0)
-                cal.set(Calendar.MILLISECOND, 0)
-                cal.timeInMillis
+        // Group expenses by day start
+        val expensesByDay = expenses.groupBy { expense ->
+            val cal = Calendar.getInstance()
+            cal.timeInMillis = expense.date
+            cal.set(Calendar.HOUR_OF_DAY, 0)
+            cal.set(Calendar.MINUTE, 0)
+            cal.set(Calendar.SECOND, 0)
+            cal.set(Calendar.MILLISECOND, 0)
+            cal.timeInMillis
+        }
+
+        // Generate all days of the month
+        val result = mutableListOf<DailyExpense>()
+        val cal = Calendar.getInstance()
+        cal.timeInMillis = monthStart
+        while (cal.timeInMillis <= monthEnd) {
+            val dayStart = cal.apply {
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
+
+            val dayExpenses = expensesByDay[dayStart] ?: emptyList()
+            val dateLabel = when (dayStart) {
+                today -> "今天"
+                yesterday -> "昨天"
+                else -> SimpleDateFormat("M月d日", Locale.CHINA).format(cal.time)
             }
-            .map { (dayStart, dayExpenses) ->
-                val dateLabel = when (dayStart) {
-                    today -> "今天"
-                    yesterday -> "昨天"
-                    else -> {
-                        val cal = Calendar.getInstance()
-                        cal.timeInMillis = dayStart
-                        SimpleDateFormat("M月d日", Locale.CHINA).format(cal.time)
-                    }
-                }
-                val expenseItems = dayExpenses.mapNotNull { expense ->
-                    val cat = categoryMap[expense.categoryId]
-                    if (cat != null) {
-                        ExpenseItem(expense = expense, category = cat)
-                    } else null
-                }
+            val expenseItems = dayExpenses.mapNotNull { expense ->
+                val cat = categoryMap[expense.categoryId]
+                if (cat != null) ExpenseItem(expense = expense, category = cat) else null
+            }
+            result.add(
                 DailyExpense(
                     dateLabel = dateLabel,
                     dateMillis = dayStart,
                     dayTotal = dayExpenses.sumOf { it.amount },
                     expenses = expenseItems
                 )
-            }
-            .sortedByDescending { it.dateMillis }
+            )
+            cal.add(Calendar.DAY_OF_MONTH, 1)
+        }
+
+        return result.sortedByDescending { it.dateMillis }
     }
 
     private fun getTodayStartMillis(): Long {
