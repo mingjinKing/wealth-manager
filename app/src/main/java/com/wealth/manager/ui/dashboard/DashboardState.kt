@@ -11,7 +11,6 @@ data class DashboardState(
     val weeklyChange: Float = 0f,
     val monthlyTotal: Double = 0.0,
     val categoryBreakdown: List<CategorySpending> = emptyList(),
-    val aiSuggestions: List<String> = emptyList(),
     val wowPreview: WowPreview? = null,
     val recentExpenses: List<ExpenseEntity> = emptyList(),
     val categories: List<CategoryEntity> = emptyList()

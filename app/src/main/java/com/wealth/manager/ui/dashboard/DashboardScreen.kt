@@ -142,12 +142,6 @@ fun DashboardScreen(
                     )
                 }
 
-                if (state.aiSuggestions.isNotEmpty()) {
-                    item {
-                        AiSuggestionCard(suggestions = state.aiSuggestions)
-                    }
-                }
-
                 state.wowPreview?.let { wow ->
                     item {
                         WowPreviewCard(wowPreview = wow)
@@ -316,46 +310,6 @@ fun CategorySpendingItem(spending: CategorySpending) {
             color = if (spending.isOverBaseline) Warning else Safe,
             trackColor = Color.White.copy(alpha = 0.1f)
         )
-    }
-}
-
-@Composable
-fun AiSuggestionCard(suggestions: List<String>) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Surface)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "\uD83D\uDCA1",
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "AI 优化建议",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            suggestions.forEach { suggestion ->
-                Text(
-                    text = "\"$suggestion\"",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-            }
-        }
     }
 }
 

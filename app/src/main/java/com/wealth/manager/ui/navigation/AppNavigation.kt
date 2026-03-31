@@ -80,11 +80,8 @@ fun AppNavigation() {
                         selected = selected,
                         onClick = {
                             navController.navigate(item.route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
-                                }
+                                // 切换 Tab 时不恢复状态，确保每次都是全新页面
                                 launchSingleTop = true
-                                restoreState = true
                             }
                         },
                         icon = {

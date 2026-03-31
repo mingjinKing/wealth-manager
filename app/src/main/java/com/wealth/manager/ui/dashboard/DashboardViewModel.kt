@@ -122,8 +122,6 @@ class DashboardViewModel @Inject constructor(
             )
         } else null
 
-        val aiSuggestions = generateAiSuggestions(categorySpending)
-
         return DashboardState(
             isLoading = false,
             weekStartDate = weekStartDate,
@@ -132,7 +130,6 @@ class DashboardViewModel @Inject constructor(
             weeklyChange = weeklyChange,
             monthlyTotal = monthlyTotal,
             categoryBreakdown = categorySpending,
-            aiSuggestions = aiSuggestions,
             wowPreview = wowPreview,
             recentExpenses = currentWeekExpenses.take(5),
             categories = categories
@@ -149,26 +146,6 @@ class DashboardViewModel @Inject constructor(
         } catch (e: Exception) {
             0.0
         }
-    }
-
-    private fun generateAiSuggestions(categorySpending: List<CategorySpending>): List<String> {
-        if (categorySpending.isEmpty()) return emptyList()
-
-        val suggestions = mutableListOf<String>()
-        val topCategory = categorySpending.firstOrNull()
-
-        if (topCategory != null && topCategory.isOverBaseline) {
-            suggestions.add("${topCategory.category.name}消费偏高，建议适当控制")
-        }
-
-        if (suggestions.size < 2) {
-            val overCategories = categorySpending.filter { it.isOverBaseline }
-            if (overCategories.size >= 2) {
-                suggestions.add("多个类别超出预算，注意整体支出")
-            }
-        }
-
-        return suggestions.take(3)
     }
 
     private fun getCurrentWeekRange(): Pair<Long, Long> {
