@@ -5,15 +5,23 @@ import com.wealth.manager.data.entity.ExpenseEntity
 
 data class DashboardState(
     val isLoading: Boolean = true,
-    val weekStartDate: String = "",
-    val weekEndDate: String = "",
-    val weeklyTotal: Double = 0.0,
-    val weeklyChange: Float = 0f,
-    val monthlyTotal: Double = 0.0,
-    val categoryBreakdown: List<CategorySpending> = emptyList(),
+    val monthTotal: Double = 0.0,
+    val recent7DaysTotal: Double = 0.0,
+    val dailyExpenses: List<DailyExpense> = emptyList(),
     val wowPreview: WowPreview? = null,
-    val recentExpenses: List<ExpenseEntity> = emptyList(),
     val categories: List<CategoryEntity> = emptyList()
+)
+
+data class DailyExpense(
+    val dateLabel: String,        // e.g. "今天", "昨天", "3月25日"
+    val dateMillis: Long,
+    val dayTotal: Double,
+    val expenses: List<ExpenseItem>
+)
+
+data class ExpenseItem(
+    val expense: ExpenseEntity,
+    val category: CategoryEntity
 )
 
 data class CategorySpending(

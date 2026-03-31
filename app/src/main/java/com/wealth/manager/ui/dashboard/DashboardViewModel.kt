@@ -5,9 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.wealth.manager.data.dao.CategoryDao
 import com.wealth.manager.data.dao.ExpenseDao
 import com.wealth.manager.data.dao.WeekStatsDao
-import com.wealth.manager.data.entity.CategoryEntity
 import com.wealth.manager.data.entity.ExpenseEntity
-import com.wealth.manager.data.entity.WeekStatsEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,35 +35,20 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true)
 
-            val (weekStart, weekEnd) = getCurrentWeekRange()
-            val (lastWeekStart, lastWeekEnd) = getLastWeekRange()
             val (monthStart, monthEnd) = getCurrentMonthRange()
-
-            val currentWeekFlow = expenseDao.getExpensesByDateRange(weekStart, weekEnd)
-            val lastWeekFlow = expenseDao.getExpensesByDateRange(lastWeekStart, lastWeekEnd)
-            val currentMonthFlow = expenseDao.getExpensesByDateRange(monthStart, monthEnd)
-            val categoriesFlow = categoryDao.getAllCategories()
-            val recentStatsFlow = weekStatsDao.getRecentWeekStats(4)
+            val (sevenDaysStart, sevenDaysEnd) = getLast7DaysRange()
 
             combine(
-                combine(
-                    combine(currentWeekFlow, lastWeekFlow, categoriesFlow) { cw, lw, cat ->
-                        Triple(cw, lw, cat)
-                    },
-                    currentMonthFlow
-                ) { triple, monthExpenses -> Pair(triple, monthExpenses) },
-                recentStatsFlow
-            ) { pair, recentStats ->
-                val triple = pair.first
-                val monthExpenses = pair.second
+                expenseDao.getExpensesByDateRange(monthStart, monthEnd),
+                expenseDao.getExpensesByDateRange(sevenDaysStart, sevenDaysEnd),
+                categoryDao.getAllCategories(),
+                weekStatsDao.getRecentWeekStats(4)
+            ) { monthExpenses, recent7DaysExpenses, categories, recentStats ->
                 calculateDashboardState(
-                    triple.first,  // currentWeekExpenses
-                    triple.second, // lastWeekExpenses
-                    triple.third,  // categories
-                    recentStats,
-                    weekStart,
-                    weekEnd,
-                    monthExpenses
+                    monthExpenses,
+                    recent7DaysExpenses,
+                    categories,
+                    recentStats
                 )
             }.collect { newState ->
                 _state.value = newState
@@ -74,45 +57,21 @@ class DashboardViewModel @Inject constructor(
     }
 
     private fun calculateDashboardState(
-        currentWeekExpenses: List<ExpenseEntity>,
-        lastWeekExpenses: List<ExpenseEntity>,
-        categories: List<CategoryEntity>,
-        recentStats: List<WeekStatsEntity>,
-        weekStart: Long,
-        weekEnd: Long,
-        monthExpenses: List<ExpenseEntity>
+        monthExpenses: List<ExpenseEntity>,
+        recent7DaysExpenses: List<ExpenseEntity>,
+        categories: List<com.wealth.manager.data.entity.CategoryEntity>,
+        recentStats: List<com.wealth.manager.data.entity.WeekStatsEntity>
     ): DashboardState {
-        val dateFormat = SimpleDateFormat("M.d", Locale.CHINA)
-        val weekStartDate = dateFormat.format(weekStart)
-        val weekEndDate = dateFormat.format(weekEnd)
-        val monthlyTotal = monthExpenses.sumOf { it.amount }
-        val weeklyTotal = currentWeekExpenses.sumOf { it.amount }
-        val lastWeekTotal = lastWeekExpenses.sumOf { it.amount }
-        val weeklyChange = if (lastWeekTotal > 0) {
-            ((weeklyTotal - lastWeekTotal) / lastWeekTotal * 100).toFloat()
-        } else 0f
+        val monthTotal = monthExpenses.sumOf { it.amount }
+        val recent7DaysTotal = recent7DaysExpenses.sumOf { it.amount }
 
-        val categoryMap = categories.associateBy { it.id }
-        val categorySpending = currentWeekExpenses
-            .groupBy { it.categoryId }
-            .mapNotNull { (categoryId, expenses) ->
-                val category = categoryMap[categoryId] ?: return@mapNotNull null
-                val amount = expenses.sumOf { it.amount }
-                val percentage = if (weeklyTotal > 0) (amount / weeklyTotal * 100).toFloat() else 0f
-                val baseline = recentStats.lastOrNull()?.let {
-                    parseBaseline(it.categoryBreakdown, categoryId)
-                } ?: 0.0
-                CategorySpending(
-                    category = category,
-                    amount = amount,
-                    percentage = percentage,
-                    isOverBaseline = amount > baseline
-                )
-            }
-            .sortedByDescending { it.amount }
+        // Group recent 7 days expenses by day
+        val dailyExpenses = groupExpensesByDay(recent7DaysExpenses, categories)
 
-        val avgLast4Weeks = recentStats.take(4).map { it.totalAmount }.average().takeIf { !it.isNaN() } ?: weeklyTotal
-        val savedAmount = avgLast4Weeks - weeklyTotal
+        // Wow calculation based on 4-week average
+        val avgLast4Weeks = recentStats.take(4).map { it.totalAmount }.average()
+            .takeIf { !it.isNaN() } ?: recent7DaysTotal
+        val savedAmount = avgLast4Weeks - recent7DaysTotal
         val isTriggered = savedAmount > 100 && savedAmount > avgLast4Weeks * 0.2
         val wowPreview = if (isTriggered) {
             WowPreview(
@@ -124,82 +83,101 @@ class DashboardViewModel @Inject constructor(
 
         return DashboardState(
             isLoading = false,
-            weekStartDate = weekStartDate,
-            weekEndDate = weekEndDate,
-            weeklyTotal = weeklyTotal,
-            weeklyChange = weeklyChange,
-            monthlyTotal = monthlyTotal,
-            categoryBreakdown = categorySpending,
+            monthTotal = monthTotal,
+            recent7DaysTotal = recent7DaysTotal,
+            dailyExpenses = dailyExpenses,
             wowPreview = wowPreview,
-            recentExpenses = currentWeekExpenses.take(5),
             categories = categories
         )
     }
 
-    private fun parseBaseline(categoryBreakdown: String, categoryId: Long): Double {
-        return try {
-            categoryBreakdown.split(";")
-                .map { it.split(":") }
-                .find { it.getOrNull(0)?.toLongOrNull() == categoryId }
-                ?.getOrNull(1)
-                ?.toDoubleOrNull() ?: 0.0
-        } catch (e: Exception) {
-            0.0
-        }
+    private fun groupExpensesByDay(
+        expenses: List<ExpenseEntity>,
+        categories: List<com.wealth.manager.data.entity.CategoryEntity>
+    ): List<DailyExpense> {
+        val categoryMap = categories.associateBy { it.id }
+        val today = getTodayStartMillis()
+        val yesterday = today - 24 * 60 * 60 * 1000
+
+        return expenses
+            .groupBy { expense ->
+                // Normalize to start of day
+                val cal = Calendar.getInstance()
+                cal.timeInMillis = expense.date
+                cal.set(Calendar.HOUR_OF_DAY, 0)
+                cal.set(Calendar.MINUTE, 0)
+                cal.set(Calendar.SECOND, 0)
+                cal.set(Calendar.MILLISECOND, 0)
+                cal.timeInMillis
+            }
+            .map { (dayStart, dayExpenses) ->
+                val dateLabel = when (dayStart) {
+                    today -> "今天"
+                    yesterday -> "昨天"
+                    else -> {
+                        val cal = Calendar.getInstance()
+                        cal.timeInMillis = dayStart
+                        SimpleDateFormat("M月d日", Locale.CHINA).format(cal.time)
+                    }
+                }
+                val expenseItems = dayExpenses.mapNotNull { expense ->
+                    val cat = categoryMap[expense.categoryId]
+                    if (cat != null) {
+                        ExpenseItem(expense = expense, category = cat)
+                    } else null
+                }
+                DailyExpense(
+                    dateLabel = dateLabel,
+                    dateMillis = dayStart,
+                    dayTotal = dayExpenses.sumOf { it.amount },
+                    expenses = expenseItems
+                )
+            }
+            .sortedByDescending { it.dateMillis }
     }
 
-    private fun getCurrentWeekRange(): Pair<Long, Long> {
-        val calendar = Calendar.getInstance()
-        calendar.set(Calendar.DAY_OF_WEEK, calendar.firstDayOfWeek)
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
-        val weekStart = calendar.timeInMillis
-
-        calendar.add(Calendar.DAY_OF_WEEK, 6)
-        calendar.set(Calendar.HOUR_OF_DAY, 23)
-        calendar.set(Calendar.MINUTE, 59)
-        calendar.set(Calendar.SECOND, 59)
-        val weekEnd = calendar.timeInMillis
-
-        return Pair(weekStart, weekEnd)
-    }
-
-    private fun getLastWeekRange(): Pair<Long, Long> {
-        val calendar = Calendar.getInstance()
-        calendar.add(Calendar.WEEK_OF_YEAR, -1)
-        calendar.set(Calendar.DAY_OF_WEEK, calendar.firstDayOfWeek)
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
-        val weekStart = calendar.timeInMillis
-
-        calendar.add(Calendar.DAY_OF_WEEK, 6)
-        calendar.set(Calendar.HOUR_OF_DAY, 23)
-        calendar.set(Calendar.MINUTE, 59)
-        calendar.set(Calendar.SECOND, 59)
-        val weekEnd = calendar.timeInMillis
-
-        return Pair(weekStart, weekEnd)
+    private fun getTodayStartMillis(): Long {
+        val cal = Calendar.getInstance()
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        return cal.timeInMillis
     }
 
     private fun getCurrentMonthRange(): Pair<Long, Long> {
-        val calendar = Calendar.getInstance()
-        calendar.set(Calendar.DAY_OF_MONTH, 1)
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
-        val monthStart = calendar.timeInMillis
+        val cal = Calendar.getInstance()
+        cal.set(Calendar.DAY_OF_MONTH, 1)
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        val monthStart = cal.timeInMillis
 
-        calendar.set(Calendar.DAY_OF_MONTH, calendar.getActualMaximum(Calendar.DAY_OF_MONTH))
-        calendar.set(Calendar.HOUR_OF_DAY, 23)
-        calendar.set(Calendar.MINUTE, 59)
-        calendar.set(Calendar.SECOND, 59)
-        val monthEnd = calendar.timeInMillis
+        cal.set(Calendar.DAY_OF_MONTH, cal.getActualMaximum(Calendar.DAY_OF_MONTH))
+        cal.set(Calendar.HOUR_OF_DAY, 23)
+        cal.set(Calendar.MINUTE, 59)
+        cal.set(Calendar.SECOND, 59)
+        val monthEnd = cal.timeInMillis
 
         return Pair(monthStart, monthEnd)
+    }
+
+    private fun getLast7DaysRange(): Pair<Long, Long> {
+        val cal = Calendar.getInstance()
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        cal.add(Calendar.DAY_OF_YEAR, -6)  // Last 7 days including today
+        val sevenDaysStart = cal.timeInMillis
+
+        cal.add(Calendar.DAY_OF_YEAR, 6)
+        cal.set(Calendar.HOUR_OF_DAY, 23)
+        cal.set(Calendar.MINUTE, 59)
+        cal.set(Calendar.SECOND, 59)
+        val sevenDaysEnd = cal.timeInMillis
+
+        return Pair(sevenDaysStart, sevenDaysEnd)
     }
 }

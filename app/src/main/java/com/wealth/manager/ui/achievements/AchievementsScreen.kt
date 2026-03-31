@@ -140,15 +140,6 @@ fun AchievementsScreen(
                         Row(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // 模糊背景层
-                            Box(
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Primary.copy(alpha = 0.2f))
-                                    .blur(8.dp)
-                            )
-                            // 清晰前景（叠加在模糊背景上方）
                             Box(
                                 modifier = Modifier
                                     .size(48.dp)
