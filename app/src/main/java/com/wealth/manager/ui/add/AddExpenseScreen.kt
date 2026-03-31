@@ -155,6 +155,16 @@ fun AddExpenseScreen(
                 }
             }
 
+            // 未选分类时的提示
+            if (selectedCategoryId == null) {
+                Text(
+                    text = "请点击上方选择分类",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Warning,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+            }
+
             Spacer(modifier = Modifier.weight(1f))
 
             // 底部：音符 + 金额 + 键盘（贴近）

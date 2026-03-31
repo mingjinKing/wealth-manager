@@ -112,16 +112,29 @@ fun AppNavigation() {
             composable(Screen.Dashboard.route) {
                 DashboardScreen(
                     onNavigateToAdd = { expenseId ->
-                        navController.navigate(Screen.Add.createRoute(expenseId))
+                        if (expenseId != null) {
+                            navController.navigate(Screen.AddWithId.createRoute(expenseId))
+                        } else {
+                            navController.navigate(Screen.Add.route)
+                        }
                     }
                 )
             }
             composable(Screen.Insights.route) {
                 InsightsScreen()
             }
-            composable(Screen.Add.route) { backStackEntry ->
-                val expenseIdStr = backStackEntry.arguments?.getString("expenseId")
-                val expenseId = expenseIdStr?.toLongOrNull()
+            // Add new expense (no expenseId)
+            composable(Screen.Add.route) {
+                AddExpenseScreen(
+                    expenseToEdit = null,
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+            // Edit existing expense
+            composable(Screen.AddWithId.route) { backStackEntry ->
+                val expenseId = backStackEntry.arguments?.getString("expenseId")?.toLongOrNull()
                 AddExpenseScreen(
                     expenseToEdit = expenseId,
                     onNavigateBack = {
