@@ -133,7 +133,10 @@ fun AppNavigation() {
                         }
                     },
                     onNavigateBack = {
-                        navController.popBackStack()
+                        // Add is startDestination，popBackStack无效，改为跳转Dashboard
+                        navController.navigate(Screen.Dashboard.route) {
+                            popUpTo(Screen.Add.route) { inclusive = true }
+                        }
                     }
                 )
             }
@@ -148,7 +151,9 @@ fun AppNavigation() {
                         }
                     },
                     onNavigateBack = {
-                        navController.popBackStack()
+                        navController.navigate(Screen.Dashboard.route) {
+                            popUpTo(Screen.AddWithId.route) { inclusive = true }
+                        }
                     }
                 )
             }
