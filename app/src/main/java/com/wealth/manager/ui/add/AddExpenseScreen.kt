@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -155,15 +154,15 @@ fun AddExpenseScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(horizontal = 16.dp)
         ) {
-            // 顶部：类别 Chips（独立滚动区域）
+            // 顶部：类别 Chips（全高滚动区域）
             LazyColumn(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 item {
@@ -201,81 +200,86 @@ fun AddExpenseScreen(
             }
 
             // 音符 + 金额 并排一行（固定在键盘上方）
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
+            // 包裹在align(BottomCenter)的Column里，与键盘一起固定在底部
+            Column(
+                modifier = Modifier.align(Alignment.BottomCenter)
             ) {
-                Card(
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 12.dp)
+                    Card(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
-                        if (note.isEmpty()) {
-                            Text(
-                                text = "备注",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = TextSecondary.copy(alpha = 0.5f)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 12.dp)
+                        ) {
+                            if (note.isEmpty()) {
+                                Text(
+                                    text = "备注",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = TextSecondary.copy(alpha = 0.5f)
+                                )
+                            }
+                            BasicTextField(
+                                value = note,
+                                onValueChange = { if (it.length <= 50) note = it },
+                                textStyle = TextStyle(fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface),
+                                cursorBrush = SolidColor(Primary),
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
                             )
                         }
-                        BasicTextField(
-                            value = note,
-                            onValueChange = { if (it.length <= 50) note = it },
-                            textStyle = TextStyle(fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface),
-                            cursorBrush = SolidColor(Primary),
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
                     }
+
+                    Text(
+                        text = "¥ $amount",
+                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onBackground,
+                        textAlign = TextAlign.End
+                    )
                 }
 
-                Text(
-                    text = "¥ $amount",
-                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onBackground,
-                    textAlign = TextAlign.End
-                )
-            }
+                Spacer(modifier = Modifier.height(12.dp))
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // 数字键盘（imePadding确保不被键盘遮挡）
-            Column(
-                modifier = Modifier
-                    .imePadding()
-                    .navigationBarsPadding()
-            ) {
-                NumericKeypadWithSign(
-                    onNumberClick = { digit ->
-                        amount = if (amount == "0") digit else amount + digit
-                    },
-                    onDecimalClick = {
-                        if (!amount.contains(".")) amount += "."
-                    },
-                    onPlusClick = { },
-                    onMinusClick = { },
-                    onDeleteClick = {
-                        amount = if (amount.length > 1) amount.dropLast(1) else "0"
-                    },
-                    onConfirmClick = {
-                        val finalAmount = amount.toDoubleOrNull() ?: 0.0
-                        if (finalAmount > 0 && selectedCategoryId != null) {
-                            if (isEditMode && expenseToEdit != null) {
-                                viewModel.updateExpense(expenseToEdit, finalAmount, selectedCategoryId!!, note)
-                                onNavigateBack()
-                            } else {
-                                viewModel.addExpense(finalAmount, selectedCategoryId!!, note, selectedDateMillis)
-                                onNavigateToDashboard()
+                // 数字键盘（imePadding保护不被键盘遮挡）
+                Column(
+                    modifier = Modifier
+                        .imePadding()
+                        .navigationBarsPadding()
+                ) {
+                    NumericKeypadWithSign(
+                        onNumberClick = { digit ->
+                            amount = if (amount == "0") digit else amount + digit
+                        },
+                        onDecimalClick = {
+                            if (!amount.contains(".")) amount += "."
+                        },
+                        onPlusClick = { },
+                        onMinusClick = { },
+                        onDeleteClick = {
+                            amount = if (amount.length > 1) amount.dropLast(1) else "0"
+                        },
+                        onConfirmClick = {
+                            val finalAmount = amount.toDoubleOrNull() ?: 0.0
+                            if (finalAmount > 0 && selectedCategoryId != null) {
+                                if (isEditMode && expenseToEdit != null) {
+                                    viewModel.updateExpense(expenseToEdit, finalAmount, selectedCategoryId!!, note)
+                                    onNavigateBack()
+                                } else {
+                                    viewModel.addExpense(finalAmount, selectedCategoryId!!, note, selectedDateMillis)
+                                    onNavigateToDashboard()
+                                }
                             }
                         }
-                    }
-                )
+                    )
+                }
             }
         }
 
