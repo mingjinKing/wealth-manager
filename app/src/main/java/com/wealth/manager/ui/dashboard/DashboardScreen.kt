@@ -295,7 +295,7 @@ fun CategorySpendingItem(spending: CategorySpending) {
         Spacer(modifier = Modifier.height(6.dp))
 
         LinearProgressIndicator(
-            progress = { spending.percentage / 100f },
+            progress = spending.percentage / 100f,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(6.dp)

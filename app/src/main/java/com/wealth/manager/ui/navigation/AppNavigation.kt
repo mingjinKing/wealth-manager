@@ -31,7 +31,6 @@ import com.wealth.manager.ui.achievements.AchievementsScreen
 import com.wealth.manager.ui.add.AddExpenseScreen
 import com.wealth.manager.ui.dashboard.DashboardScreen
 import com.wealth.manager.ui.insights.InsightsScreen
-import com.wealth.manager.ui.theme.Divider
 import com.wealth.manager.ui.theme.Primary
 import com.wealth.manager.ui.theme.Surface
 import com.wealth.manager.ui.theme.TextSecondary
@@ -110,8 +109,7 @@ fun AppNavigation() {
                             selectedTextColor = Primary,
                             unselectedIconColor = TextSecondary,
                             unselectedTextColor = TextSecondary,
-                            indicatorColor = Surface,
-                            dividerColor = Divider
+                            indicatorColor = Surface
                         )
                     )
                 }
