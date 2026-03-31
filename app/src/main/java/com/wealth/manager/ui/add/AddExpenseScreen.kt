@@ -154,16 +154,17 @@ fun AddExpenseScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(horizontal = 16.dp)
         ) {
-            // 顶部：类别 Chips（滚动区域，fill=false不强制撑满）
+            // 顶部：类别 Chips（填满剩余空间，键盘出现时自动压缩）
             LazyColumn(
                 modifier = Modifier
-                    .weight(1f, fill = false),
+                    .fillMaxSize()
+                    .weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 item {
@@ -201,7 +202,9 @@ fun AddExpenseScreen(
             }
 
             // 音符 + 金额 并排一行 + 键盘（固定在底部）
-            Column {
+            Column(
+                modifier = Modifier.align(Alignment.BottomCenter)
+            ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
