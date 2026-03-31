@@ -12,11 +12,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.filled.Check
@@ -26,6 +30,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -39,6 +45,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -47,6 +55,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.wealth.manager.ui.theme.Primary
 import com.wealth.manager.ui.theme.Surface
 import com.wealth.manager.ui.theme.TextSecondary
+import com.wealth.manager.ui.theme.Warning
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -55,6 +64,7 @@ fun AddExpenseScreen(
     viewModel: AddExpenseViewModel = hiltViewModel()
 ) {
     var amount by remember { mutableStateOf("0") }
+    var note by remember { mutableStateOf("") }
     var selectedCategoryId by remember { mutableStateOf<Long?>(null) }
     val categories by viewModel.categories.collectAsState()
 
@@ -90,20 +100,10 @@ fun AddExpenseScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(horizontal = 16.dp)
+                .imePadding()
         ) {
-            Spacer(modifier = Modifier.height(32.dp))
-
-            Text(
-                text = "¥ $amount",
-                style = MaterialTheme.typography.displayLarge.copy(fontSize = 48.sp),
-                fontWeight = FontWeight.Bold,
-                color = if (amount == "0") TextSecondary else MaterialTheme.colorScheme.onBackground
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
+            // 顶部：类别 Chips（5个/行）
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -116,7 +116,7 @@ fun AddExpenseScreen(
                             .clip(RoundedCornerShape(20.dp))
                             .background(if (isSelected) Primary else Surface)
                             .clickable { selectedCategoryId = category.id }
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .padding(horizontal = 14.dp, vertical = 8.dp)
                     ) {
                         Text(
                             text = category.name,
@@ -127,9 +127,68 @@ fun AddExpenseScreen(
                 }
             }
 
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 中部：左侧备注 + 右侧金额
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // 左侧：备注输入框
+                Card(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(56.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Surface)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        if (note.isEmpty()) {
+                            Text(
+                                text = "添加备注...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = TextSecondary.copy(alpha = 0.5f)
+                            )
+                        }
+                        BasicTextField(
+                            value = note,
+                            onValueChange = { if (it.length <= 50) note = it },
+                            textStyle = TextStyle(
+                                fontSize = 16.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            ),
+                            cursorBrush = SolidColor(Primary),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // 右侧：金额显示
+                Text(
+                    text = "¥ $amount",
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = if (amount == "0") TextSecondary else MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.widthIn(min = 100.dp),
+                    textAlign = TextAlign.End
+                )
+            }
+
             Spacer(modifier = Modifier.weight(1f))
 
-            NumericKeypad(
+            // 底部：数字键盘（+/- 替换 ⌫）
+            NumericKeypadWithSign(
                 onNumberClick = { digit ->
                     amount = if (amount == "0") digit else amount + digit
                 },
@@ -138,13 +197,19 @@ fun AddExpenseScreen(
                         amount += "."
                     }
                 },
+                onPlusClick = {
+                    // 前缀 + 表示收入（目前先保留扩展性）
+                },
+                onMinusClick = {
+                    // 前缀 - 表示支出，当前版本金额默认支出
+                },
                 onDeleteClick = {
                     amount = if (amount.length > 1) amount.dropLast(1) else "0"
                 },
                 onConfirmClick = {
                     val finalAmount = amount.toDoubleOrNull() ?: 0.0
                     if (finalAmount > 0 && selectedCategoryId != null) {
-                        viewModel.addExpense(finalAmount, selectedCategoryId!!)
+                        viewModel.addExpense(finalAmount, selectedCategoryId!!, note)
                         onExpenseAdded()
                     }
                 }
@@ -156,15 +221,18 @@ fun AddExpenseScreen(
 }
 
 @Composable
-fun NumericKeypad(
+fun NumericKeypadWithSign(
     onNumberClick: (String) -> Unit,
     onDecimalClick: () -> Unit,
+    onPlusClick: () -> Unit,
+    onMinusClick: () -> Unit,
     onDeleteClick: () -> Unit,
     onConfirmClick: () -> Unit
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        // Row 1: 1 2 3 + −
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -172,9 +240,11 @@ fun NumericKeypad(
             KeypadButton("1", Modifier.weight(1f), onClick = { onNumberClick("1") })
             KeypadButton("2", Modifier.weight(1f), onClick = { onNumberClick("2") })
             KeypadButton("3", Modifier.weight(1f), onClick = { onNumberClick("3") })
-            KeypadButton("⌫", Modifier.weight(1f), onClick = onDeleteClick, isSpecial = true)
+            KeypadButton("+", Modifier.weight(1f), onClick = onPlusClick, isSpecial = true)
+            KeypadButton("−", Modifier.weight(1f), onClick = onMinusClick, isSpecial = true)
         }
 
+        // Row 2: 4 5 6 ⌫ ✓
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -182,9 +252,11 @@ fun NumericKeypad(
             KeypadButton("4", Modifier.weight(1f), onClick = { onNumberClick("4") })
             KeypadButton("5", Modifier.weight(1f), onClick = { onNumberClick("5") })
             KeypadButton("6", Modifier.weight(1f), onClick = { onNumberClick("6") })
-            KeypadButton("00", Modifier.weight(1f), onClick = { onNumberClick("00") }, isSpecial = true)
+            KeypadButton("⌫", Modifier.weight(1f), onClick = onDeleteClick, isSpecial = true)
+            KeypadButton("✓", Modifier.weight(1f), onClick = onConfirmClick, isPrimary = true)
         }
 
+        // Row 3: 7 8 9 .
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -192,16 +264,17 @@ fun NumericKeypad(
             KeypadButton("7", Modifier.weight(1f), onClick = { onNumberClick("7") })
             KeypadButton("8", Modifier.weight(1f), onClick = { onNumberClick("8") })
             KeypadButton("9", Modifier.weight(1f), onClick = { onNumberClick("9") })
-            KeypadButton("✓", Modifier.weight(1f), onClick = onConfirmClick, isPrimary = true)
+            KeypadButton("·", Modifier.weight(1f), onClick = onDecimalClick, isSpecial = true)
+            KeypadButton("00", Modifier.weight(1f), onClick = { onNumberClick("00") }, isSpecial = true)
         }
 
+        // Row 4: 0
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            KeypadButton("·", Modifier.weight(1f), onClick = onDecimalClick, isSpecial = true)
             KeypadButton("0", Modifier.weight(1f), onClick = { onNumberClick("0") })
-            KeypadButton("", Modifier.weight(1f), onClick = { }, enabled = false)
+            Spacer(modifier = Modifier.weight(4f))
         }
     }
 }
@@ -217,7 +290,7 @@ fun KeypadButton(
 ) {
     Box(
         modifier = modifier
-            .height(64.dp)
+            .height(56.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(
                 when {
@@ -229,24 +302,25 @@ fun KeypadButton(
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        if (text == "⌫") {
-            Icon(
+        when (text) {
+            "⌫" -> Icon(
                 imageVector = Icons.AutoMirrored.Filled.Backspace,
                 contentDescription = "删除",
                 tint = TextSecondary
             )
-        } else if (text == "✓") {
-            Icon(
+            "✓" -> Icon(
                 imageVector = Icons.Default.Check,
                 contentDescription = "确认",
                 tint = MaterialTheme.colorScheme.onPrimary
             )
-        } else {
-            Text(
+            else -> Text(
                 text = text,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Medium,
-                color = if (enabled) MaterialTheme.colorScheme.onSurface else TextSecondary.copy(alpha = 0.3f),
+                color = if (enabled) {
+                    if (isPrimary || isSpecial) MaterialTheme.colorScheme.onPrimary
+                    else MaterialTheme.colorScheme.onSurface
+                } else TextSecondary.copy(alpha = 0.3f),
                 textAlign = TextAlign.Center
             )
         }
