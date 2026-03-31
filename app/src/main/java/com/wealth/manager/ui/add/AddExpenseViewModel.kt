@@ -46,7 +46,7 @@ class AddExpenseViewModel @Inject constructor(
         }
     }
 
-    fun addExpense(amount: Double, categoryId: Long) {
+    fun addExpense(amount: Double, categoryId: Long, note: String = "") {
         viewModelScope.launch {
             val calendar = Calendar.getInstance()
             calendar.set(Calendar.HOUR_OF_DAY, 0)
@@ -58,7 +58,8 @@ class AddExpenseViewModel @Inject constructor(
             val expense = ExpenseEntity(
                 amount = amount,
                 categoryId = categoryId,
-                date = today
+                date = today,
+                note = note
             )
             expenseDao.insertExpense(expense)
         }
