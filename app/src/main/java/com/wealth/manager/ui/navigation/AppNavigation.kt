@@ -127,6 +127,11 @@ fun AppNavigation() {
             composable(Screen.Add.route) {
                 AddExpenseScreen(
                     expenseToEdit = null,
+                    onNavigateToDashboard = {
+                        navController.navigate(Screen.Dashboard.route) {
+                            popUpTo(Screen.Add.route) { inclusive = true }
+                        }
+                    },
                     onNavigateBack = {
                         navController.popBackStack()
                     }
@@ -137,6 +142,11 @@ fun AppNavigation() {
                 val expenseId = backStackEntry.arguments?.getString("expenseId")?.toLongOrNull()
                 AddExpenseScreen(
                     expenseToEdit = expenseId,
+                    onNavigateToDashboard = {
+                        navController.navigate(Screen.Dashboard.route) {
+                            popUpTo(Screen.AddWithId.route) { inclusive = true }
+                        }
+                    },
                     onNavigateBack = {
                         navController.popBackStack()
                     }

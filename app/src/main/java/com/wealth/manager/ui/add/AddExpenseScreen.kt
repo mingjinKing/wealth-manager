@@ -59,8 +59,8 @@ import com.wealth.manager.ui.theme.TextSecondary
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AddExpenseScreen(
-    expenseToEdit: Long? = null,    // null = add mode, non-null = edit mode
-    onExpenseAdded: () -> Unit = {},
+    expenseToEdit: Long? = null,
+    onNavigateToDashboard: () -> Unit = {},
     onNavigateBack: () -> Unit = {},
     viewModel: AddExpenseViewModel = hiltViewModel()
 ) {
@@ -238,10 +238,11 @@ fun AddExpenseScreen(
                     if (finalAmount > 0 && selectedCategoryId != null) {
                         if (isEditMode && expenseToEdit != null) {
                             viewModel.updateExpense(expenseToEdit, finalAmount, selectedCategoryId!!, note)
+                            onNavigateBack()
                         } else {
                             viewModel.addExpense(finalAmount, selectedCategoryId!!, note)
+                            onNavigateToDashboard()
                         }
-                        onNavigateBack()
                     }
                 }
             )
