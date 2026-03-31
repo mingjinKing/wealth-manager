@@ -284,7 +284,7 @@ fun DailyExpenseItem(item: ExpenseItem) {
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = item.category.emoji,
+                    text = item.category.icon,
                     style = MaterialTheme.typography.bodySmall
                 )
             }
