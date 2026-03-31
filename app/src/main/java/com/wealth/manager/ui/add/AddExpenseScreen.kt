@@ -149,74 +149,65 @@ fun AddExpenseScreen(
                         Text(
                             text = category.name,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else TextSecondary
+                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
-            }
-
-            // 未选分类时的提示
-            if (selectedCategoryId == null) {
-                Text(
-                    text = "请点击上方选择分类",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Warning,
-                    modifier = Modifier.padding(top = 6.dp)
-                )
             }
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // 底部：音符 + 金额 + 键盘（贴近）
-            // 音符输入
-            Card(
+            // 底部：音符 + 金额 并排一行
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 14.dp)
+                // 左侧：备注输入
+                Card(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
-                    if (note.isEmpty()) {
-                        Text(
-                            text = "添加备注...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextSecondary.copy(alpha = 0.5f)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 12.dp)
+                    ) {
+                        if (note.isEmpty()) {
+                            Text(
+                                text = "备注",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = TextSecondary.copy(alpha = 0.5f)
+                            )
+                        }
+                        BasicTextField(
+                            value = note,
+                            onValueChange = { if (it.length <= 50) note = it },
+                            textStyle = TextStyle(
+                                fontSize = 15.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            ),
+                            cursorBrush = SolidColor(Primary),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
                         )
                     }
-                    BasicTextField(
-                        value = note,
-                        onValueChange = { if (it.length <= 50) note = it },
-                        textStyle = TextStyle(
-                            fontSize = 15.sp,
-                            color = MaterialTheme.colorScheme.onSurface
-                        ),
-                        cursorBrush = SolidColor(Primary),
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
                 }
+
+                // 右侧：金额
+                Text(
+                    text = "¥ $amount",
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = MaterialTheme.colorScheme.onBackground,
+                    textAlign = TextAlign.End
+                )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // 金额显示
-            Text(
-                text = "¥ $amount",
-                style = MaterialTheme.typography.headlineLarge.copy(
-                    fontWeight = FontWeight.Bold
-                ),
-                color = if (amount == "0") TextSecondary else MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                textAlign = TextAlign.Start
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             // 数字键盘
             NumericKeypadWithSign(
