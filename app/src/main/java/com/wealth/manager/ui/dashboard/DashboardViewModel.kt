@@ -38,16 +38,21 @@ class DashboardViewModel @Inject constructor(
             val (weekStart, weekEnd) = getCurrentWeekRange()
             val (lastWeekStart, lastWeekEnd) = getLastWeekRange()
 
+            val currentWeekFlow = expenseDao.getExpensesByDateRange(weekStart, weekEnd)
+            val lastWeekFlow = expenseDao.getExpensesByDateRange(lastWeekStart, lastWeekEnd)
+            val categoriesFlow = categoryDao.getAllCategories()
+            val recentStatsFlow = weekStatsDao.getRecentWeekStats(4)
+
             combine(
-                expenseDao.getExpensesByDateRange(weekStart, weekEnd),
-                expenseDao.getExpensesByDateRange(lastWeekStart, lastWeekEnd),
-                categoryDao.getAllCategories(),
-                weekStatsDao.getRecentWeekStats(4)
-            ) { currentWeekExpenses, lastWeekExpenses, categories, recentStats ->
+                combine(currentWeekFlow, lastWeekFlow, categoriesFlow) { cw, lw, cat ->
+                    Triple(cw, lw, cat)
+                },
+                recentStatsFlow
+            ) { triple, recentStats ->
                 calculateDashboardState(
-                    currentWeekExpenses,
-                    lastWeekExpenses,
-                    categories,
+                    triple.first,
+                    triple.second,
+                    triple.third,
                     recentStats
                 )
             }.collect { newState ->
