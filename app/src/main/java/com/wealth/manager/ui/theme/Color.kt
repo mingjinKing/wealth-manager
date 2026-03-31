@@ -7,7 +7,7 @@ val Primary = Color(0xFFffc880)
 val PrimaryDark = Color(0xFF0c0c1f)
 
 // Light theme: subtle gray background, pure white cards/nav
-val Background = Color(0xFFF8F8F8)   // 浅灰底色，衬托白卡片
+val Background = Color(0xFFF0F0F0)   // 浅灰底色，与纯白卡片拉开差距
 val Surface = Color(0xFFFFFFFF)       // 纯白卡片和底部导航
 val SurfaceElevated = Color(0xFFFFFFFF)
 
