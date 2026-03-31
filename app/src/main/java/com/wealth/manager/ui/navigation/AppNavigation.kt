@@ -2,11 +2,9 @@ package com.wealth.manager.ui.navigation
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.Star
@@ -54,12 +52,6 @@ val bottomNavItems = listOf(
         selectedIcon = Icons.Filled.Insights,
         unselectedIcon = Icons.Outlined.Insights,
         route = Screen.Insights.route
-    ),
-    BottomNavItem(
-        label = "添加",
-        selectedIcon = Icons.Filled.Add,
-        unselectedIcon = Icons.Outlined.Add,
-        route = Screen.Add.route
     ),
     BottomNavItem(
         label = "成就",
@@ -118,7 +110,7 @@ fun AppNavigation() {
     ) { paddingValues ->
         NavHost(
             navController = navController,
-            startDestination = Screen.Dashboard.route,
+            startDestination = Screen.Add.route,
             modifier = Modifier.padding(paddingValues)
         ) {
             composable(Screen.Dashboard.route) {
@@ -128,7 +120,12 @@ fun AppNavigation() {
                 InsightsScreen()
             }
             composable(Screen.Add.route) {
-                AddExpenseScreen(onExpenseAdded = { navController.popBackStack() })
+                AddExpenseScreen(onExpenseAdded = {
+                    // 添加完成后跳转首页，popBackStack 会回到首页
+                    navController.navigate(Screen.Dashboard.route) {
+                        popUpTo(Screen.Add.route) { inclusive = true }
+                    }
+                })
             }
             composable(Screen.Achievements.route) {
                 AchievementsScreen()
