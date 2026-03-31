@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="primary">#ffc880</color>
+    <color name="background">#0c0c1f</color>
+    <color name="surface">#13132b</color>
+    <color name="safe">#4A90D9</color>
+    <color name="warning">#E55B5B</color>
+    <color name="onPrimary">#0c0c1f</color>
+    <color name="onBackground">#FFFFFF</color>
+    <color name="onSurface">#FFFFFF</color>
+    <color name="textSecondary">#9E9EA4</color>
+    <color name="divider">#2D2D44</color>
+</resources>
