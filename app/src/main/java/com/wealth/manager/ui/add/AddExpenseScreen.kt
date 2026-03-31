@@ -36,6 +36,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,7 +55,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.wealth.manager.ui.theme.Primary
 import com.wealth.manager.ui.theme.Surface
 import com.wealth.manager.ui.theme.TextSecondary
-import com.wealth.manager.ui.theme.Warning
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -65,23 +65,25 @@ fun AddExpenseScreen(
     viewModel: AddExpenseViewModel = hiltViewModel()
 ) {
     val categories by viewModel.categories.collectAsState()
-    val editingExpense = if (expenseToEdit != null) {
-        viewModel.getExpenseById(expenseToEdit)
-    } else null
+    val editingExpense by viewModel.editingExpense.collectAsState()
 
-    var amount by remember(expenseToEdit) {
-        mutableStateOf(
-            editingExpense?.let {
-                if (it.amount == it.amount.toLong().toDouble()) it.amount.toLong().toString()
-                else it.amount.toString()
-            } ?: "0"
-        )
+    var amount by remember { mutableStateOf("0") }
+    var note by remember { mutableStateOf("") }
+    var selectedCategoryId by remember { mutableStateOf<Long?>(null) }
+
+    LaunchedEffect(expenseToEdit) {
+        if (expenseToEdit != null) {
+            viewModel.loadExpense(expenseToEdit)
+        }
     }
-    var note by remember(expenseToEdit) {
-        mutableStateOf(editingExpense?.note ?: "")
-    }
-    var selectedCategoryId by remember(expenseToEdit) {
-        mutableStateOf(editingExpense?.categoryId)
+
+    LaunchedEffect(editingExpense) {
+        editingExpense?.let {
+            amount = if (it.amount == it.amount.toLong().toDouble()) it.amount.toLong().toString()
+            else it.amount.toString()
+            note = it.note
+            selectedCategoryId = it.categoryId
+        }
     }
 
     val isEditMode = expenseToEdit != null

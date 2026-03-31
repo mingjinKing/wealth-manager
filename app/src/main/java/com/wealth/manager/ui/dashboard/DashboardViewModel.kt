@@ -40,8 +40,6 @@ class DashboardViewModel @Inject constructor(
     fun loadDashboardData() {
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true)
-        viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true)
 
             val (monthStart, monthEnd) = getCurrentMonthRange()
             val (sevenDaysStart, sevenDaysEnd) = getLast7DaysRange()

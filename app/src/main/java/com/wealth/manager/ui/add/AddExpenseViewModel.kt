@@ -7,8 +7,10 @@ import com.wealth.manager.data.dao.ExpenseDao
 import com.wealth.manager.data.entity.CategoryEntity
 import com.wealth.manager.data.entity.ExpenseEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -19,6 +21,9 @@ class AddExpenseViewModel @Inject constructor(
     private val expenseDao: ExpenseDao,
     private val categoryDao: CategoryDao
 ) : ViewModel() {
+
+    private val _editingExpense = MutableStateFlow<ExpenseEntity?>(null)
+    val editingExpense: StateFlow<ExpenseEntity?> = _editingExpense.asStateFlow()
 
     val categories: StateFlow<List<CategoryEntity>> = categoryDao.getAllCategories()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
@@ -32,17 +37,23 @@ class AddExpenseViewModel @Inject constructor(
             val count = categoryDao.getCategoryCount()
             if (count == 0) {
                 val defaultCategories = listOf(
-                    CategoryEntity(name = "餐饮", emoji = "\uD83C\uDF57", color = "#ffc880"),
-                    CategoryEntity(name = "购物", emoji = "\uD83D\uDECD", color = "#4A90D9"),
-                    CategoryEntity(name = "交通", emoji = "\uD83D\uDE8C", color = "#E55B5B"),
-                    CategoryEntity(name = "娱乐", emoji = "\uD83C\uDFAE", color = "#9C27B0"),
-                    CategoryEntity(name = "居住", emoji = "\uD83C\uDFE0", color = "#4CAF50"),
-                    CategoryEntity(name = "医疗", emoji = "\uD83C\uDFE5", color = "#F44336"),
-                    CategoryEntity(name = "学习", emoji = "\uD83D\uDCDA", color = "#2196F3"),
-                    CategoryEntity(name = "其他", emoji = "\uD83D\uDCCB", color = "#9E9E9E")
+                    CategoryEntity(name = "餐饮", icon = "\uD83C\uDF57", color = "#ffc880"),
+                    CategoryEntity(name = "购物", icon = "\uD83D\uDECD", color = "#4A90D9"),
+                    CategoryEntity(name = "交通", icon = "\uD83D\uDE8C", color = "#E55B5B"),
+                    CategoryEntity(name = "娱乐", icon = "\uD83C\uDFAE", color = "#9C27B0"),
+                    CategoryEntity(name = "居住", icon = "\uD83C\uDFE0", color = "#4CAF50"),
+                    CategoryEntity(name = "医疗", icon = "\uD83C\uDFE5", color = "#F44336"),
+                    CategoryEntity(name = "学习", icon = "\uD83D\uDCDA", color = "#2196F3"),
+                    CategoryEntity(name = "其他", icon = "\uD83D\uDCCB", color = "#9E9E9E")
                 )
                 categoryDao.insertCategories(defaultCategories)
             }
+        }
+    }
+
+    fun loadExpense(id: Long) {
+        viewModelScope.launch {
+            _editingExpense.value = expenseDao.getExpenseById(id)
         }
     }
 
@@ -68,10 +79,6 @@ class AddExpenseViewModel @Inject constructor(
             )
             expenseDao.updateExpense(updated)
         }
-    }
-
-    suspend fun getExpenseById(id: Long): ExpenseEntity? {
-        return expenseDao.getExpenseById(id)
     }
 
     fun deleteExpense(id: Long) {
