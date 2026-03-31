@@ -48,6 +48,7 @@ import com.wealth.manager.ui.theme.Warning
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AchievementsScreen(
+    onNavigateToInsights: () -> Unit = {},
     viewModel: AchievementsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -139,12 +140,20 @@ fun AchievementsScreen(
                         Row(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            // 模糊背景层
                             Box(
                                 modifier = Modifier
                                     .size(48.dp)
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(Primary.copy(alpha = 0.2f))
-                                    .blur(8.dp),
+                                    .blur(8.dp)
+                            )
+                            // 清晰前景（叠加在模糊背景上方）
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Primary.copy(alpha = 0.2f)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(text = "\uD83C\uDFC6", style = MaterialTheme.typography.titleLarge)
@@ -182,7 +191,7 @@ fun AchievementsScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     OutlinedButton(
-                        onClick = { },
+                        onClick = onNavigateToInsights,
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Primary)
                     ) {

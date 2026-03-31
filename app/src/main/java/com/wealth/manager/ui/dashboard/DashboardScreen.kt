@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FabPosition
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -98,6 +99,7 @@ fun DashboardScreen(
                 )
             }
         },
+        floatingActionButtonPosition = FabPosition.Center,
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         if (state.isLoading) {
@@ -126,8 +128,11 @@ fun DashboardScreen(
 
                 item {
                     WeeklyOverviewCard(
+                        weekStartDate = state.weekStartDate,
+                        weekEndDate = state.weekEndDate,
                         weeklyTotal = state.weeklyTotal,
-                        weeklyChange = state.weeklyChange
+                        weeklyChange = state.weeklyChange,
+                        monthlyTotal = state.monthlyTotal
                     )
                 }
 
@@ -159,8 +164,11 @@ fun DashboardScreen(
 
 @Composable
 fun WeeklyOverviewCard(
+    weekStartDate: String,
+    weekEndDate: String,
     weeklyTotal: Double,
-    weeklyChange: Float
+    weeklyChange: Float,
+    monthlyTotal: Double
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -176,8 +184,13 @@ fun WeeklyOverviewCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "本周总计",
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = "$weekStartDate - $weekEndDate 本周",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary
+                )
+                Text(
+                    text = "本月支出 ¥ ${NumberFormat.getNumberInstance(Locale.CHINA).format(monthlyTotal)}",
+                    style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {

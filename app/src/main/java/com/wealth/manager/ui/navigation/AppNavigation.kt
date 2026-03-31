@@ -128,7 +128,9 @@ fun AppNavigation() {
                 })
             }
             composable(Screen.Achievements.route) {
-                AchievementsScreen()
+                AchievementsScreen(
+                    onNavigateToInsights = { navController.navigate(Screen.Insights.route) }
+                )
             }
         }
     }

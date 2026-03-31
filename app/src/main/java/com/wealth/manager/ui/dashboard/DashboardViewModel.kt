@@ -14,7 +14,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Locale
 import javax.inject.Inject
 
 @HiltViewModel
@@ -37,23 +39,33 @@ class DashboardViewModel @Inject constructor(
 
             val (weekStart, weekEnd) = getCurrentWeekRange()
             val (lastWeekStart, lastWeekEnd) = getLastWeekRange()
+            val (monthStart, monthEnd) = getCurrentMonthRange()
 
             val currentWeekFlow = expenseDao.getExpensesByDateRange(weekStart, weekEnd)
             val lastWeekFlow = expenseDao.getExpensesByDateRange(lastWeekStart, lastWeekEnd)
+            val currentMonthFlow = expenseDao.getExpensesByDateRange(monthStart, monthEnd)
             val categoriesFlow = categoryDao.getAllCategories()
             val recentStatsFlow = weekStatsDao.getRecentWeekStats(4)
 
             combine(
-                combine(currentWeekFlow, lastWeekFlow, categoriesFlow) { cw, lw, cat ->
-                    Triple(cw, lw, cat)
-                },
+                combine(
+                    combine(currentWeekFlow, lastWeekFlow, categoriesFlow) { cw, lw, cat ->
+                        Triple(cw, lw, cat)
+                    },
+                    currentMonthFlow
+                ) { triple, monthExpenses -> Pair(triple, monthExpenses) },
                 recentStatsFlow
-            ) { triple, recentStats ->
+            ) { pair, recentStats ->
+                val triple = pair.first
+                val monthExpenses = pair.second
                 calculateDashboardState(
-                    triple.first,
-                    triple.second,
-                    triple.third,
-                    recentStats
+                    triple.first,  // currentWeekExpenses
+                    triple.second, // lastWeekExpenses
+                    triple.third,  // categories
+                    recentStats,
+                    weekStart,
+                    weekEnd,
+                    monthExpenses
                 )
             }.collect { newState ->
                 _state.value = newState
@@ -65,8 +77,15 @@ class DashboardViewModel @Inject constructor(
         currentWeekExpenses: List<ExpenseEntity>,
         lastWeekExpenses: List<ExpenseEntity>,
         categories: List<CategoryEntity>,
-        recentStats: List<WeekStatsEntity>
+        recentStats: List<WeekStatsEntity>,
+        weekStart: Long,
+        weekEnd: Long,
+        monthExpenses: List<ExpenseEntity>
     ): DashboardState {
+        val dateFormat = SimpleDateFormat("M.d", Locale.CHINA)
+        val weekStartDate = dateFormat.format(weekStart)
+        val weekEndDate = dateFormat.format(weekEnd)
+        val monthlyTotal = monthExpenses.sumOf { it.amount }
         val weeklyTotal = currentWeekExpenses.sumOf { it.amount }
         val lastWeekTotal = lastWeekExpenses.sumOf { it.amount }
         val weeklyChange = if (lastWeekTotal > 0) {
@@ -107,8 +126,11 @@ class DashboardViewModel @Inject constructor(
 
         return DashboardState(
             isLoading = false,
+            weekStartDate = weekStartDate,
+            weekEndDate = weekEndDate,
             weeklyTotal = weeklyTotal,
             weeklyChange = weeklyChange,
+            monthlyTotal = monthlyTotal,
             categoryBreakdown = categorySpending,
             aiSuggestions = aiSuggestions,
             wowPreview = wowPreview,
@@ -184,5 +206,23 @@ class DashboardViewModel @Inject constructor(
         val weekEnd = calendar.timeInMillis
 
         return Pair(weekStart, weekEnd)
+    }
+
+    private fun getCurrentMonthRange(): Pair<Long, Long> {
+        val calendar = Calendar.getInstance()
+        calendar.set(Calendar.DAY_OF_MONTH, 1)
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+        val monthStart = calendar.timeInMillis
+
+        calendar.set(Calendar.DAY_OF_MONTH, calendar.getActualMaximum(Calendar.DAY_OF_MONTH))
+        calendar.set(Calendar.HOUR_OF_DAY, 23)
+        calendar.set(Calendar.MINUTE, 59)
+        calendar.set(Calendar.SECOND, 59)
+        val monthEnd = calendar.timeInMillis
+
+        return Pair(monthStart, monthEnd)
     }
 }

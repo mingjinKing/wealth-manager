@@ -5,8 +5,11 @@ import com.wealth.manager.data.entity.ExpenseEntity
 
 data class DashboardState(
     val isLoading: Boolean = true,
+    val weekStartDate: String = "",
+    val weekEndDate: String = "",
     val weeklyTotal: Double = 0.0,
     val weeklyChange: Float = 0f,
+    val monthlyTotal: Double = 0.0,
     val categoryBreakdown: List<CategorySpending> = emptyList(),
     val aiSuggestions: List<String> = emptyList(),
     val wowPreview: WowPreview? = null,
