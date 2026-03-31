@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Card
@@ -30,8 +31,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -60,22 +59,47 @@ import com.wealth.manager.ui.theme.Warning
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AddExpenseScreen(
-    onExpenseAdded: () -> Unit,
+    expenseToEdit: Long? = null,    // null = add mode, non-null = edit mode
+    onExpenseAdded: () -> Unit = {},
+    onNavigateBack: () -> Unit = {},
     viewModel: AddExpenseViewModel = hiltViewModel()
 ) {
-    var amount by remember { mutableStateOf("0") }
-    var note by remember { mutableStateOf("") }
-    var selectedCategoryId by remember { mutableStateOf<Long?>(null) }
     val categories by viewModel.categories.collectAsState()
+    val editingExpense = if (expenseToEdit != null) {
+        viewModel.getExpenseById(expenseToEdit)
+    } else null
+
+    var amount by remember(expenseToEdit) {
+        mutableStateOf(
+            editingExpense?.let {
+                if (it.amount == it.amount.toLong().toDouble()) it.amount.toLong().toString()
+                else it.amount.toString()
+            } ?: "0"
+        )
+    }
+    var note by remember(expenseToEdit) {
+        mutableStateOf(editingExpense?.note ?: "")
+    }
+    var selectedCategoryId by remember(expenseToEdit) {
+        mutableStateOf(editingExpense?.categoryId)
+    }
+
+    val isEditMode = expenseToEdit != null
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { },
+                title = {
+                    Text(
+                        text = if (isEditMode) "修改账单" else "添加账单",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                },
                 navigationIcon = {
-                    IconButton(onClick = onExpenseAdded) {
+                    IconButton(onClick = onNavigateBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Backspace,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "返回",
                             tint = MaterialTheme.colorScheme.onBackground
                         )
@@ -102,6 +126,8 @@ fun AddExpenseScreen(
                 .padding(paddingValues)
                 .padding(horizontal = 16.dp)
                 .imePadding()
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // 顶部：类别 Chips（5个/行）
             FlowRow(
@@ -127,67 +153,60 @@ fun AddExpenseScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // 中部：左侧备注 + 右侧金额
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // 左侧：备注输入框
-                Card(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(56.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Surface)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 16.dp),
-                        contentAlignment = Alignment.CenterStart
-                    ) {
-                        if (note.isEmpty()) {
-                            Text(
-                                text = "添加备注...",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = TextSecondary.copy(alpha = 0.5f)
-                            )
-                        }
-                        BasicTextField(
-                            value = note,
-                            onValueChange = { if (it.length <= 50) note = it },
-                            textStyle = TextStyle(
-                                fontSize = 16.sp,
-                                color = MaterialTheme.colorScheme.onSurface
-                            ),
-                            cursorBrush = SolidColor(Primary),
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                // 右侧：金额显示
-                Text(
-                    text = "¥ $amount",
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold
-                    ),
-                    color = if (amount == "0") TextSecondary else MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.widthIn(min = 100.dp),
-                    textAlign = TextAlign.End
-                )
-            }
-
             Spacer(modifier = Modifier.weight(1f))
 
-            // 底部：数字键盘（+/- 替换 ⌫）
+            // 底部：音符 + 金额 + 键盘（贴近）
+            // 音符输入
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp)
+                ) {
+                    if (note.isEmpty()) {
+                        Text(
+                            text = "添加备注...",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondary.copy(alpha = 0.5f)
+                        )
+                    }
+                    BasicTextField(
+                        value = note,
+                        onValueChange = { if (it.length <= 50) note = it },
+                        textStyle = TextStyle(
+                            fontSize = 15.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        ),
+                        cursorBrush = SolidColor(Primary),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 金额显示
+            Text(
+                text = "¥ $amount",
+                style = MaterialTheme.typography.headlineLarge.copy(
+                    fontWeight = FontWeight.Bold
+                ),
+                color = if (amount == "0") TextSecondary else MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                textAlign = TextAlign.Start
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 数字键盘
             NumericKeypadWithSign(
                 onNumberClick = { digit ->
                     amount = if (amount == "0") digit else amount + digit
@@ -197,20 +216,20 @@ fun AddExpenseScreen(
                         amount += "."
                     }
                 },
-                onPlusClick = {
-                    // 前缀 + 表示收入（目前先保留扩展性）
-                },
-                onMinusClick = {
-                    // 前缀 - 表示支出，当前版本金额默认支出
-                },
+                onPlusClick = { },
+                onMinusClick = { },
                 onDeleteClick = {
                     amount = if (amount.length > 1) amount.dropLast(1) else "0"
                 },
                 onConfirmClick = {
                     val finalAmount = amount.toDoubleOrNull() ?: 0.0
                     if (finalAmount > 0 && selectedCategoryId != null) {
-                        viewModel.addExpense(finalAmount, selectedCategoryId!!, note)
-                        onExpenseAdded()
+                        if (isEditMode && expenseToEdit != null) {
+                            viewModel.updateExpense(expenseToEdit, finalAmount, selectedCategoryId!!, note)
+                        } else {
+                            viewModel.addExpense(finalAmount, selectedCategoryId!!, note)
+                        }
+                        onNavigateBack()
                     }
                 }
             )
@@ -295,7 +314,6 @@ fun KeypadButton(
             .background(
                 when {
                     isPrimary -> Primary
-                    isSpecial -> Surface
                     else -> Surface
                 }
             )
@@ -306,7 +324,7 @@ fun KeypadButton(
             "⌫" -> Icon(
                 imageVector = Icons.AutoMirrored.Filled.Backspace,
                 contentDescription = "删除",
-                tint = TextSecondary
+                tint = if (enabled) TextSecondary else TextSecondary.copy(alpha = 0.3f)
             )
             "✓" -> Icon(
                 imageVector = Icons.Default.Check,
@@ -318,7 +336,7 @@ fun KeypadButton(
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Medium,
                 color = if (enabled) {
-                    if (isPrimary || isSpecial) MaterialTheme.colorScheme.onPrimary
+                    if (isPrimary) MaterialTheme.colorScheme.onPrimary
                     else MaterialTheme.colorScheme.onSurface
                 } else TextSecondary.copy(alpha = 0.3f),
                 textAlign = TextAlign.Center

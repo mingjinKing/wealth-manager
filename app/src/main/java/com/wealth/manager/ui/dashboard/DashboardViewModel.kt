@@ -31,7 +31,15 @@ class DashboardViewModel @Inject constructor(
         loadDashboardData()
     }
 
+    fun deleteExpense(id: Long) {
+        viewModelScope.launch {
+            expenseDao.deleteExpenseById(id)
+        }
+    }
+
     fun loadDashboardData() {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isLoading = true)
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true)
 

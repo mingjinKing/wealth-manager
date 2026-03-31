@@ -80,7 +80,6 @@ fun AppNavigation() {
                         selected = selected,
                         onClick = {
                             navController.navigate(item.route) {
-                                // 切换 Tab 时不恢复状态，确保每次都是全新页面
                                 launchSingleTop = true
                             }
                         },
@@ -111,18 +110,24 @@ fun AppNavigation() {
             modifier = Modifier.padding(paddingValues)
         ) {
             composable(Screen.Dashboard.route) {
-                DashboardScreen(onNavigateToAdd = { navController.navigate(Screen.Add.route) })
+                DashboardScreen(
+                    onNavigateToAdd = { expenseId ->
+                        navController.navigate(Screen.Add.createRoute(expenseId))
+                    }
+                )
             }
             composable(Screen.Insights.route) {
                 InsightsScreen()
             }
-            composable(Screen.Add.route) {
-                AddExpenseScreen(onExpenseAdded = {
-                    // 添加完成后跳转首页，popBackStack 会回到首页
-                    navController.navigate(Screen.Dashboard.route) {
-                        popUpTo(Screen.Add.route) { inclusive = true }
+            composable(Screen.Add.route) { backStackEntry ->
+                val expenseIdStr = backStackEntry.arguments?.getString("expenseId")
+                val expenseId = expenseIdStr?.toLongOrNull()
+                AddExpenseScreen(
+                    expenseToEdit = expenseId,
+                    onNavigateBack = {
+                        navController.popBackStack()
                     }
-                })
+                )
             }
             composable(Screen.Achievements.route) {
                 AchievementsScreen(
