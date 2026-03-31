@@ -303,6 +303,8 @@ fun AddExpenseScreen(
         }
     }
 }
+
+private fun formatDateLabel(millis: Long): String {
     val today = getTodayStartMillis()
     val yesterday = today - 24 * 60 * 60 * 1000
     return when (millis) {
