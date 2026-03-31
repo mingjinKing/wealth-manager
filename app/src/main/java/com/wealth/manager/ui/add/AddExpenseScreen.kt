@@ -27,12 +27,8 @@ import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.DatePickerState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -59,7 +55,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.wealth.manager.ui.theme.Primary
 import com.wealth.manager.ui.theme.Surface
 import com.wealth.manager.ui.theme.TextSecondary
-import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -75,10 +70,6 @@ fun AddExpenseScreen(
     var amount by remember { mutableStateOf("0") }
     var note by remember { mutableStateOf("") }
     var selectedCategoryId by remember { mutableStateOf<Long?>(null) }
-    var selectedDateMillis by remember { mutableStateOf(System.currentTimeMillis()) }
-    var showDatePicker by remember { mutableStateOf(false) }
-
-    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDateMillis)
 
     LaunchedEffect(expenseToEdit) {
         if (expenseToEdit != null) {
@@ -92,7 +83,6 @@ fun AddExpenseScreen(
             else it.amount.toString()
             note = it.note
             selectedCategoryId = it.categoryId
-            selectedDateMillis = it.date
         }
     }
 
@@ -118,19 +108,12 @@ fun AddExpenseScreen(
                     }
                 },
                 actions = {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { showDatePicker = true }
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = formatDateLabel(selectedDateMillis),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Primary,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
+                    Text(
+                        text = "今天",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextSecondary,
+                        modifier = Modifier.padding(end = 16.dp)
+                    )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
@@ -257,7 +240,7 @@ fun AddExpenseScreen(
                             viewModel.updateExpense(expenseToEdit, finalAmount, selectedCategoryId!!, note)
                             onNavigateBack()
                         } else {
-                            viewModel.addExpense(finalAmount, selectedCategoryId!!, note, selectedDateMillis)
+                            viewModel.addExpense(finalAmount, selectedCategoryId!!, note)
                             onNavigateToDashboard()
                         }
                     }
@@ -265,51 +248,6 @@ fun AddExpenseScreen(
             )
 
             Spacer(modifier = Modifier.height(16.dp))
-        }
-
-        // 日期选择弹窗
-        if (showDatePicker) {
-            DatePickerDialog(
-                onDismissRequest = { showDatePicker = false },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            datePickerState.selectedDateMillis?.let {
-                                selectedDateMillis = it
-                            }
-                            showDatePicker = false
-                        }
-                    ) {
-                        Text("确定")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showDatePicker = false }) {
-                        Text("取消")
-                    }
-                }
-            ) {
-                DatePicker(state = datePickerState)
-            }
-        }
-    }
-}
-
-/** 将毫秒时间戳格式化为"今天"/"昨天"/"M月d日" */
-private fun formatDateLabel(millis: Long): String {
-    val today = Calendar.getInstance().apply {
-        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-    }.timeInMillis
-    val yesterday = today - 24 * 60 * 60 * 1000
-    return when (millis) {
-        in today..(today + 24 * 60 * 60 * 1000 - 1) -> "今天"
-        in yesterday..(yesterday + 24 * 60 * 60 * 1000 - 1) -> "昨天"
-        else -> {
-            val cal = Calendar.getInstance()
-            cal.timeInMillis = millis
-            val month = cal.get(Calendar.MONTH) + 1
-            val day = cal.get(Calendar.DAY_OF_MONTH)
-            "${month}月${day}日"
         }
     }
 }
