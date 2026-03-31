@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="zh"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-container": "#1e1e32",
+              "on-primary-container": "#644000",
+              "tertiary-fixed": "#ffdad8",
+              "surface-container-highest": "#333348",
+              "secondary-container": "#0063a9",
+              "surface-tint": "#ffb955",
+              "tertiary-fixed-dim": "#ffb3b0",
+              "outline-variant": "#524534",
+              "primary-fixed-dim": "#ffb955",
+              "surface-container-lowest": "#0c0c1f",
+              "background": "#111125",
+              "surface-bright": "#37374d",
+              "on-tertiary-fixed-variant": "#8b1820",
+              "tertiary-container": "#ff9b97",
+              "inverse-surface": "#e2e0fc",
+              "on-background": "#e2e0fc",
+              "on-surface-variant": "#d7c3ae",
+              "on-secondary-container": "#c7deff",
+              "on-primary-fixed-variant": "#633f00",
+              "inverse-primary": "#835500",
+              "on-error": "#690005",
+              "on-error-container": "#ffdad6",
+              "on-surface": "#e2e0fc",
+              "outline": "#9f8e7a",
+              "surface-variant": "#333348",
+              "on-secondary": "#003259",
+              "secondary-fixed": "#d2e4ff",
+              "tertiary": "#ffc4c0",
+              "primary-fixed": "#ffddb4",
+              "on-primary-fixed": "#291800",
+              "on-secondary-fixed-variant": "#00497e",
+              "on-tertiary-fixed": "#410006",
+              "primary-container": "#f5a623",
+              "surface-container-low": "#1a1a2e",
+              "on-tertiary": "#68000f",
+              "on-tertiary-container": "#8c1921",
+              "secondary": "#a0caff",
+              "surface-dim": "#111125",
+              "error": "#ffb4ab",
+              "on-secondary-fixed": "#001c37",
+              "surface-container-high": "#28283d",
+              "primary": "#ffc880",
+              "inverse-on-surface": "#2f2e43",
+              "on-primary": "#452b00",
+              "error-container": "#93000a",
+              "secondary-fixed-dim": "#a0caff",
+              "surface": "#111125"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface-container-lowest text-on-surface font-body selection:bg-primary/30">
+<!-- Top Navigation Bar (Transactional: Suppression of SideNav/BottomNavBar applies) -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 bg-[#111125]">
+<button class="w-10 h-10 flex items-center justify-start text-primary active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-2xl">arrow_back</span>
+</button>
+<div class="bg-surface-container-high px-4 py-1.5 rounded-full flex items-center gap-2 border border-outline-variant/20">
+<span class="material-symbols-outlined text-sm text-primary">calendar_today</span>
+<span class="text-on-surface-variant font-label text-xs font-bold tracking-widest uppercase">今天</span>
+</div>
+<button class="w-10 h-10 flex items-center justify-end text-on-surface-variant active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-2xl">more_horiz</span>
+</button>
+</header>
+<main class="min-h-screen pt-16 pb-6 flex flex-col">
+<!-- Hero Area: Large Amount Display -->
+<section class="flex-grow flex flex-col justify-center items-center px-6 py-8">
+<div class="text-center">
+<p class="text-on-surface-variant font-label text-[10px] uppercase tracking-[0.2em] mb-4 opacity-70">输入消费金额</p>
+<div class="flex items-baseline justify-center gap-2">
+<span class="text-primary font-headline text-2xl font-bold">¥</span>
+<h1 class="text-on-surface font-headline text-6xl md:text-7xl font-extrabold tracking-tighter">
+                        0.00
+                    </h1>
+</div>
+</div>
+</section>
+<!-- Category Selection: Horizontal Scrolling Chips -->
+<section class="w-full mb-8">
+<div class="flex overflow-x-auto hide-scrollbar px-6 gap-3 snap-x">
+<!-- Dining (Selected) -->
+<button class="snap-start flex-shrink-0 flex flex-col items-center gap-2 group">
+<div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-primary to-primary-container flex items-center justify-center text-on-primary shadow-lg shadow-primary/10">
+<span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">restaurant</span>
+</div>
+<span class="text-primary font-label text-xs font-bold">餐饮</span>
+</button>
+<!-- Shopping -->
+<button class="snap-start flex-shrink-0 flex flex-col items-center gap-2 group">
+<div class="w-14 h-14 rounded-2xl border border-outline-variant/30 bg-surface-container hover:bg-surface-container-high transition-colors flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-2xl">shopping_bag</span>
+</div>
+<span class="text-on-surface-variant font-label text-xs">购物</span>
+</button>
+<!-- Transport -->
+<button class="snap-start flex-shrink-0 flex flex-col items-center gap-2 group">
+<div class="w-14 h-14 rounded-2xl border border-outline-variant/30 bg-surface-container hover:bg-surface-container-high transition-colors flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-2xl">directions_car</span>
+</div>
+<span class="text-on-surface-variant font-label text-xs">交通</span>
+</button>
+<!-- Entertainment -->
+<button class="snap-start flex-shrink-0 flex flex-col items-center gap-2 group">
+<div class="w-14 h-14 rounded-2xl border border-outline-variant/30 bg-surface-container hover:bg-surface-container-high transition-colors flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-2xl">theater_comedy</span>
+</div>
+<span class="text-on-surface-variant font-label text-xs">娱乐</span>
+</button>
+<!-- Housing -->
+<button class="snap-start flex-shrink-0 flex flex-col items-center gap-2 group">
+<div class="w-14 h-14 rounded-2xl border border-outline-variant/30 bg-surface-container hover:bg-surface-container-high transition-colors flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-2xl">home</span>
+</div>
+<span class="text-on-surface-variant font-label text-xs">居住</span>
+</button>
+<!-- Medical -->
+<button class="snap-start flex-shrink-0 flex flex-col items-center gap-2 group">
+<div class="w-14 h-14 rounded-2xl border border-outline-variant/30 bg-surface-container hover:bg-surface-container-high transition-colors flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-2xl">medical_services</span>
+</div>
+<span class="text-on-surface-variant font-label text-xs">医疗</span>
+</button>
+<!-- Learning -->
+<button class="snap-start flex-shrink-0 flex flex-col items-center gap-2 group">
+<div class="w-14 h-14 rounded-2xl border border-outline-variant/30 bg-surface-container hover:bg-surface-container-high transition-colors flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-2xl">school</span>
+</div>
+<span class="text-on-surface-variant font-label text-xs">学习</span>
+</button>
+<!-- Other -->
+<button class="snap-start flex-shrink-0 flex flex-col items-center gap-2 group">
+<div class="w-14 h-14 rounded-2xl border border-outline-variant/30 bg-surface-container hover:bg-surface-container-high transition-colors flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-2xl">more_horiz</span>
+</div>
+<span class="text-on-surface-variant font-label text-xs">其他</span>
+</button>
+</div>
+</section>
+<!-- Numeric Keypad Area -->
+<section class="px-6 pb-4">
+<div class="grid grid-cols-4 gap-3">
+<!-- Row 1 -->
+<button class="h-16 rounded-lg bg-surface-container text-on-surface font-headline text-2xl font-bold flex items-center justify-center active:bg-surface-container-highest transition-colors">1</button>
+<button class="h-16 rounded-lg bg-surface-container text-on-surface font-headline text-2xl font-bold flex items-center justify-center active:bg-surface-container-highest transition-colors">2</button>
+<button class="h-16 rounded-lg bg-surface-container text-on-surface font-headline text-2xl font-bold flex items-center justify-center active:bg-surface-container-highest transition-colors">3</button>
+<button class="h-16 rounded-lg bg-surface-container-high text-primary flex items-center justify-center active:bg-surface-bright transition-colors">
+<span class="material-symbols-outlined text-2xl">backspace</span>
+</button>
+<!-- Row 2 -->
+<button class="h-16 rounded-lg bg-surface-container text-on-surface font-headline text-2xl font-bold flex items-center justify-center active:bg-surface-container-highest transition-colors">4</button>
+<button class="h-16 rounded-lg bg-surface-container text-on-surface font-headline text-2xl font-bold flex items-center justify-center active:bg-surface-container-highest transition-colors">5</button>
+<button class="h-16 rounded-lg bg-surface-container text-on-surface font-headline text-2xl font-bold flex items-center justify-center active:bg-surface-container-highest transition-colors">6</button>
+<button class="h-32 row-span-2 rounded-lg bg-surface-container-lowest border-2 border-primary/20 text-primary font-headline text-2xl font-bold flex items-center justify-center active:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-3xl">add</span>
+</button>
+<!-- Row 3 -->
+<button class="h-16 rounded-lg bg-surface-container text-on-surface font-headline text-2xl font-bold flex items-center justify-center active:bg-surface-container-highest transition-colors">7</button>
+<button class="h-16 rounded-lg bg-surface-container text-on-surface font-headline text-2xl font-bold flex items-center justify-center active:bg-surface-container-highest transition-colors">8</button>
+<button class="h-16 rounded-lg bg-surface-container text-on-surface font-headline text-2xl font-bold flex items-center justify-center active:bg-surface-container-highest transition-colors">9</button>
+<!-- Row 4 -->
+<button class="h-16 rounded-lg bg-surface-container text-on-surface font-headline text-2xl font-bold flex items-center justify-center active:bg-surface-container-highest transition-colors">.</button>
+<button class="h-16 rounded-lg bg-surface-container text-on-surface font-headline text-2xl font-bold flex items-center justify-center active:bg-surface-container-highest transition-colors">0</button>
+<button class="h-16 rounded-lg bg-surface-container text-on-surface font-headline text-2xl font-bold flex items-center justify-center active:bg-surface-container-highest transition-colors">00</button>
+<button class="h-16 rounded-lg bg-primary-container text-on-primary-fixed font-bold flex items-center justify-center shadow-lg shadow-primary/20 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-3xl">check</span>
+</button>
+</div>
+</section>
+<!-- Optional Note/Tag Area -->
+<section class="px-6 flex justify-between items-center text-on-surface-variant">
+<div class="flex items-center gap-4">
+<button class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-container-low text-xs hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-sm">notes</span>
+<span>添加备注</span>
+</button>
+<button class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-container-low text-xs hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-sm">label</span>
+<span>分类标签</span>
+</button>
+</div>
+<div class="text-[10px] uppercase font-label tracking-widest opacity-40">
+                Mirror Engine V2.0
+            </div>
+</section>
+</main>
+<!-- Visual Polish: Soft Ambient Glow -->
+<div class="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 blur-[120px] rounded-full pointer-events-none"></div>
+<div class="fixed bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-secondary/5 blur-[120px] rounded-full pointer-events-none"></div>
+</body></html>
