@@ -245,9 +245,11 @@ fun AddExpenseScreen(
                     Column(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
-                        // 第一行：备注 + 金额
+                        // 第一行：备注 + 金额（往上推，远离键盘）
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -285,7 +287,7 @@ fun AddExpenseScreen(
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
 
                         // 分隔线
                         HorizontalDivider(
@@ -293,7 +295,7 @@ fun AddExpenseScreen(
                             color = TextSecondary.copy(alpha = 0.2f)
                         )
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
 
                         // 数字键盘
                         NumericKeypadWithSign(
