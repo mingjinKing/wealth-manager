@@ -171,7 +171,6 @@ fun AddExpenseScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = paddingValues.calculateTopPadding())
-                .imePadding()
                 .pointerInput(Unit) {
                     detectTapGestures(onTap = { focusManager.clearFocus() })
                 }
@@ -197,7 +196,6 @@ fun AddExpenseScreen(
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f)
                         .padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -234,6 +232,9 @@ fun AddExpenseScreen(
                         Spacer(modifier = Modifier.height(16.dp))
                     }
                 }
+
+                // 把卡片顶到底部，键盘出现时只有上面的Spacer压缩
+                androidx.compose.foundation.layout.Spacer(modifier = Modifier.weight(1f))
 
                 // 音符 + 金额 + 数字键盘 — 统一卡片
                 Card(
