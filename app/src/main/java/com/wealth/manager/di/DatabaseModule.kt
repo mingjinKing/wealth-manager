@@ -3,6 +3,8 @@ package com.wealth.manager.di
 import android.content.Context
 import androidx.room.Room
 import com.wealth.manager.data.AppDatabase
+import com.wealth.manager.data.dao.AssetDao
+import com.wealth.manager.data.dao.BudgetDao
 import com.wealth.manager.data.dao.CategoryDao
 import com.wealth.manager.data.dao.ExpenseDao
 import com.wealth.manager.data.dao.WeekStatsDao
@@ -24,7 +26,9 @@ object DatabaseModule {
             context,
             AppDatabase::class.java,
             AppDatabase.DATABASE_NAME
-        ).build()
+        )
+            .fallbackToDestructiveMigration()
+            .build()
     }
 
     @Provides
@@ -43,5 +47,17 @@ object DatabaseModule {
     @Singleton
     fun provideWeekStatsDao(database: AppDatabase): WeekStatsDao {
         return database.weekStatsDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideAssetDao(database: AppDatabase): AssetDao {
+        return database.assetDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideBudgetDao(database: AppDatabase): BudgetDao {
+        return database.budgetDao()
     }
 }

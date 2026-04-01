@@ -18,10 +18,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -50,6 +54,7 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InsightsScreen(
+    onNavigateBack: () -> Unit = {},
     viewModel: InsightsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -63,6 +68,14 @@ fun InsightsScreen(
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "返回"
+                        )
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
@@ -114,7 +127,7 @@ fun InsightsScreen(
                     )
                 }
 
-                // 1. 分类分析层（集中展示所有分类）
+                // 1. 分类 analysis
                 item {
                     Text(
                         text = "消费分类占比",
@@ -128,7 +141,7 @@ fun InsightsScreen(
                     MonthlyCategoryCard(item = item)
                 }
 
-                // 2. AI 消费分析层（全局分析）
+                // 2. AI 洞察
                 item {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(

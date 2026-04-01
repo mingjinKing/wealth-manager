@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Insights
@@ -52,6 +53,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.wealth.manager.ui.achievements.AchievementsScreen
 import com.wealth.manager.ui.add.AddExpenseScreen
+import com.wealth.manager.ui.assets.AssetManageScreen
 import com.wealth.manager.ui.category.CategoryManageScreen
 import com.wealth.manager.ui.dashboard.DashboardScreen
 import com.wealth.manager.ui.importdata.ImportScreen
@@ -97,6 +99,7 @@ data class DrawerMenuItem(
 )
 
 val drawerMenuItems = listOf(
+    DrawerMenuItem("资产管理", Icons.Default.AccountBalanceWallet, Screen.AssetManage.route),
     DrawerMenuItem("分类管理", Icons.Default.List, Screen.CategoryManage.route),
     DrawerMenuItem("导入数据", Icons.Default.Download, Screen.Import.route)
 )
@@ -254,7 +257,7 @@ fun AppNavigation() {
         ) { paddingValues ->
             NavHost(
                 navController = navController,
-                startDestination = Screen.Add.route,
+                startDestination = Screen.Dashboard.route,
                 modifier = Modifier.padding(paddingValues)
             ) {
                 composable(Screen.Dashboard.route) {
@@ -272,7 +275,9 @@ fun AppNavigation() {
                     )
                 }
                 composable(Screen.Insights.route) {
-                    InsightsScreen()
+                    InsightsScreen(
+                        onNavigateBack = { navController.popBackStack() }
+                    )
                 }
                 composable(Screen.Add.route) {
                     AddExpenseScreen(
@@ -307,7 +312,8 @@ fun AppNavigation() {
                 }
                 composable(Screen.Achievements.route) {
                     AchievementsScreen(
-                        onNavigateToInsights = { navController.navigate(Screen.Insights.route) }
+                        onNavigateBack = { navController.popBackStack() },
+                        onNavigateToAssets = { navController.navigate(Screen.AssetManage.route) }
                     )
                 }
                 composable(Screen.CategoryManage.route) {
@@ -315,6 +321,11 @@ fun AppNavigation() {
                 }
                 composable(Screen.Import.route) {
                     ImportScreen()
+                }
+                composable(Screen.AssetManage.route) {
+                    AssetManageScreen(
+                        onNavigateBack = { navController.popBackStack() }
+                    )
                 }
             }
         }
