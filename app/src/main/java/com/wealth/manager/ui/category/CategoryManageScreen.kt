@@ -26,7 +26,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -48,18 +47,21 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.wealth.manager.data.entity.CategoryEntity
 import com.wealth.manager.ui.theme.Primary
 import com.wealth.manager.ui.theme.Surface
 import com.wealth.manager.ui.theme.TextSecondary
 
-// 预设 emoji 列表
+// 预设 emoji 列表 - 已简化图标库
 private val emojiList = listOf(
     "\uD83C\uDF57", "\uD83D\uDECD", "\uD83D\uDE8C", "\uD83C\uDFAE",
     "\uD83C\uDFE0", "\uD83C\uDFE5", "\uD83D\uDCDA", "\uD83D\uDCCB",
     "\uD83D\uDCB0", "\u2764\uFE0F", "\u2708\uFE0F", "\uD83D\uDE34",
     "\uD83C\uDF4E", "\uD83C\uDF55", "\uD83D\uDE97", "\uD83D\uDECF",
-    "\uD83D\uDCBC", "\uD83C\uDF93", "\uD83D\uDCB5", "\uD83D\uDE84"
+    "\uD83D\uDCBC", "\uD83C\uDF93", "\uD83D\uDCB5", "\uD83D\uDE84",
+    "\uD83E\uDDFC" // 代表日用品的香皂图标
 )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -68,9 +70,11 @@ fun CategoryManageScreen(
     viewModel: CategoryManageViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
-    var showAddDialog by remember { mutableStateOf(false) }
-    var newCategoryName by remember { mutableStateOf("") }
-    var newCategoryEmoji by remember { mutableStateOf(emojiList.first()) }
+    var showDialog by remember { mutableStateOf(false) }
+    var editingCategory by remember { mutableStateOf<CategoryEntity?>(null) }
+    
+    var categoryName by remember { mutableStateOf("") }
+    var categoryEmoji by remember { mutableStateOf(emojiList.first()) }
 
     Scaffold(
         topBar = {
@@ -82,19 +86,26 @@ fun CategoryManageScreen(
                         fontWeight = FontWeight.Medium
                     )
                 },
+                actions = {
+                    IconButton(
+                        onClick = {
+                            editingCategory = null
+                            categoryName = ""
+                            categoryEmoji = emojiList.first()
+                            showDialog = true
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "新增分类",
+                            tint = Primary
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
                 )
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showAddDialog = true },
-                containerColor = Primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "新增分类")
-            }
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
@@ -122,6 +133,12 @@ fun CategoryManageScreen(
                         name = category.name,
                         emoji = category.icon,
                         color = Color(android.graphics.Color.parseColor(category.color)),
+                        onClick = {
+                            editingCategory = category
+                            categoryName = category.name
+                            categoryEmoji = category.icon
+                            showDialog = true
+                        },
                         onDelete = { viewModel.deleteCategory(category.id) }
                     )
                 }
@@ -144,6 +161,12 @@ fun CategoryManageScreen(
                         name = category.name,
                         emoji = category.icon,
                         color = Color(android.graphics.Color.parseColor(category.color)),
+                        onClick = {
+                            editingCategory = category
+                            categoryName = category.name
+                            categoryEmoji = category.icon
+                            showDialog = true
+                        },
                         onDelete = { viewModel.deleteCategory(category.id) }
                     )
                 }
@@ -153,16 +176,16 @@ fun CategoryManageScreen(
         }
     }
 
-    // 新增分类弹窗
-    if (showAddDialog) {
+    // 新增/编辑分类弹窗
+    if (showDialog) {
         AlertDialog(
-            onDismissRequest = { showAddDialog = false },
-            title = { Text("新增分类") },
+            onDismissRequest = { showDialog = false },
+            title = { Text(if (editingCategory == null) "新增分类" else "编辑分类") },
             text = {
                 Column {
                     OutlinedTextField(
-                        value = newCategoryName,
-                        onValueChange = { newCategoryName = it },
+                        value = categoryName,
+                        onValueChange = { categoryName = it },
                         label = { Text("分类名称") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -175,22 +198,22 @@ fun CategoryManageScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         emojiList.forEach { emoji ->
                             Box(
                                 modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .size(52.dp)
+                                    .clip(RoundedCornerShape(12.dp))
                                     .background(
-                                        if (emoji == newCategoryEmoji) Primary.copy(alpha = 0.2f)
+                                        if (emoji == categoryEmoji) Primary.copy(alpha = 0.2f)
                                         else Surface
                                     )
-                                    .clickable { newCategoryEmoji = emoji },
+                                    .clickable { categoryEmoji = emoji },
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(text = emoji, style = MaterialTheme.typography.bodyLarge)
+                                Text(text = emoji, fontSize = 24.sp)
                             }
                         }
                     }
@@ -199,19 +222,21 @@ fun CategoryManageScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        if (newCategoryName.isNotBlank()) {
-                            viewModel.addCategory(newCategoryName.trim(), newCategoryEmoji)
-                            newCategoryName = ""
-                            newCategoryEmoji = emojiList.first()
-                            showAddDialog = false
+                        if (categoryName.isNotBlank()) {
+                            if (editingCategory == null) {
+                                viewModel.addCategory(categoryName.trim(), categoryEmoji)
+                            } else {
+                                viewModel.updateCategory(editingCategory!!, categoryName.trim(), categoryEmoji)
+                            }
+                            showDialog = false
                         }
                     }
                 ) {
-                    Text("添加")
+                    Text(if (editingCategory == null) "添加" else "保存")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showAddDialog = false }) {
+                TextButton(onClick = { showDialog = false }) {
                     Text("取消")
                 }
             }
@@ -224,10 +249,13 @@ private fun CategoryItem(
     name: String,
     emoji: String,
     color: Color,
+    onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)

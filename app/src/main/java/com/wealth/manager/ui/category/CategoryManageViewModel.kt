@@ -8,7 +8,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -31,11 +30,12 @@ class CategoryManageViewModel @Inject constructor(
 
     private fun loadCategories() {
         viewModelScope.launch {
-            val all = categoryDao.getAllCategories().first()
-            _state.value = CategoryManageState(
-                defaultCategories = all.filter { it.isDefault },
-                customCategories = all.filter { !it.isDefault }
-            )
+            categoryDao.getAllCategories().collect { all ->
+                _state.value = CategoryManageState(
+                    defaultCategories = all.filter { it.isDefault },
+                    customCategories = all.filter { !it.isDefault }
+                )
+            }
         }
     }
 
@@ -49,14 +49,20 @@ class CategoryManageViewModel @Inject constructor(
                 isDefault = false
             )
             categoryDao.insertCategory(category)
-            loadCategories()
+        }
+    }
+
+    fun updateCategory(category: CategoryEntity, newName: String, newIcon: String) {
+        viewModelScope.launch {
+            categoryDao.insertCategory(
+                category.copy(name = newName, icon = newIcon)
+            )
         }
     }
 
     fun deleteCategory(id: Long) {
         viewModelScope.launch {
             categoryDao.deleteCategoryById(id)
-            loadCategories()
         }
     }
 }
