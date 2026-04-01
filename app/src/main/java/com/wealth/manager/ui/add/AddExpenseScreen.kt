@@ -8,7 +8,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.FlowRow
@@ -17,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -81,6 +81,11 @@ fun AddExpenseScreen(
     var selectedDateMillis by remember { mutableLongStateOf(getTodayStartMillis()) }
     var showDatePicker by remember { mutableStateOf(false) }
 
+    // 计算器逻辑状态
+    var pendingValue by remember { mutableStateOf<Double?>(null) }
+    var pendingOperator by remember { mutableStateOf<String?>(null) }
+    var shouldResetInput by remember { mutableStateOf(false) }
+
     // 拦截系统滑动返回，确保滑动和按返回键行为一致
     BackHandler { onNavigateBack() }
 
@@ -114,8 +119,7 @@ fun AddExpenseScreen(
 
     LaunchedEffect(editingExpense) {
         editingExpense?.let {
-            amount = if (it.amount == it.amount.toLong().toDouble()) it.amount.toLong().toString()
-            else it.amount.toString()
+            amount = formatDoubleToString(it.amount)
             note = it.note
             selectedCategoryId = it.categoryId
             selectedDateMillis = it.date
@@ -123,9 +127,22 @@ fun AddExpenseScreen(
     }
 
     val isEditMode = expenseToEdit != null
-
-    // 焦点管理（点击空白处收起系统键盘）
     val focusManager = LocalFocusManager.current
+
+    // 计算逻辑函数
+    val performCalculation = {
+        val current = amount.toDoubleOrNull() ?: 0.0
+        if (pendingValue != null && pendingOperator != null) {
+            val result = when (pendingOperator) {
+                "+" -> pendingValue!! + current
+                "−" -> pendingValue!! - current
+                else -> current
+            }
+            amount = formatDoubleToString(result)
+            pendingValue = null
+            pendingOperator = null
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -168,10 +185,8 @@ fun AddExpenseScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
-        // adjustNothing + 动态 bottomPadding
-        // 键盘高度通过 WindowInsets.ime.getBottom() 获取，Card 动态调整底部padding避免被覆盖
         val imePadding = WindowInsets.ime.asPaddingValues()
-        val bottomPad = (imePadding.calculateBottomPadding() + 180.dp).coerceAtLeast(16.dp)
+        val bottomPad = (imePadding.calculateBottomPadding() + 250.dp).coerceAtLeast(16.dp)
 
         Box(
             modifier = Modifier
@@ -181,21 +196,18 @@ fun AddExpenseScreen(
                     detectTapGestures(onTap = { focusManager.clearFocus() })
                 }
         ) {
-            // 底层：数字键盘区域（永远固定在底部，被系统键盘覆盖）
+            // 底层占位
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .navigationBarsPadding()
             ) {
-                Spacer(modifier = Modifier.height(180.dp))
+                Spacer(modifier = Modifier.height(250.dp))
             }
 
-            // 上层：类别列表 + 备注/金额
-            Column(
-                modifier = Modifier.fillMaxSize()
-            ) {
-                // 类别列表
+            Column(modifier = Modifier.fillMaxSize()) {
+                // 类别选择
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -237,11 +249,11 @@ fun AddExpenseScreen(
                     }
                 }
 
-                // 底部统一卡片
+                // 底部输入区域卡片
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = bottomPad - 180.dp),  // 180dp给底层键盘，差值推高Card
+                        .padding(bottom = bottomPad - 250.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = Background),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
@@ -249,13 +261,11 @@ fun AddExpenseScreen(
                     Column(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
-                        // 第一行：备注 + 金额
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // 备注输入框
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
@@ -280,59 +290,92 @@ fun AddExpenseScreen(
                                 )
                             }
 
-                            // 金额显示
-                            Text(
-                                text = "¥ $amount",
-                                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onSurface,
-                                textAlign = TextAlign.End
-                            )
+                            Column(horizontalAlignment = Alignment.End) {
+                                if (pendingOperator != null && pendingValue != null) {
+                                    Text(
+                                        text = "${formatDoubleToString(pendingValue!!)} $pendingOperator",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Primary
+                                    )
+                                }
+                                Text(
+                                    text = "¥ $amount",
+                                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.End
+                                )
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
-
-                        // 分隔线
-                        HorizontalDivider(
-                            thickness = 0.5.dp,
-                            color = TextSecondary.copy(alpha = 0.2f)
-                        )
-
+                        HorizontalDivider(thickness = 0.5.dp, color = TextSecondary.copy(alpha = 0.2f))
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // 数字键盘
                         NumericKeypadWithSign(
                             onNumberClick = { digit ->
-                                amount = if (amount == "0") digit else amount + digit
+                                if (shouldResetInput) {
+                                    amount = digit
+                                    shouldResetInput = false
+                                } else {
+                                    amount = if (amount == "0") digit else amount + digit
+                                }
                             },
                             onDecimalClick = {
-                                if (!amount.contains(".")) amount += "."
+                                if (shouldResetInput) {
+                                    amount = "0."
+                                    shouldResetInput = false
+                                } else if (!amount.contains(".")) {
+                                    amount += "."
+                                }
                             },
-                            onPlusClick = { },
-                            onMinusClick = { },
+                            onPlusClick = {
+                                performCalculation()
+                                pendingValue = amount.toDoubleOrNull() ?: 0.0
+                                pendingOperator = "+"
+                                shouldResetInput = true
+                            },
+                            onMinusClick = {
+                                performCalculation()
+                                pendingValue = amount.toDoubleOrNull() ?: 0.0
+                                pendingOperator = "−"
+                                shouldResetInput = true
+                            },
                             onDeleteClick = {
-                                amount = if (amount.length > 1) amount.dropLast(1) else "0"
+                                if (shouldResetInput) {
+                                    amount = "0"
+                                    shouldResetInput = false
+                                } else {
+                                    amount = if (amount.length > 1) amount.dropLast(1) else "0"
+                                }
                             },
                             onConfirmClick = {
-                                val finalAmount = amount.toDoubleOrNull() ?: 0.0
-                                if (finalAmount > 0 && selectedCategoryId != null) {
-                                    if (isEditMode && expenseToEdit != null) {
-                                        viewModel.updateExpense(expenseToEdit, finalAmount, selectedCategoryId!!, note)
-                                        onNavigateBack()
-                                    } else {
-                                        viewModel.addExpense(finalAmount, selectedCategoryId!!, note, selectedDateMillis)
-                                        onNavigateToDashboard()
+                                if (pendingOperator != null) {
+                                    performCalculation()
+                                    shouldResetInput = true
+                                } else {
+                                    val finalAmount = amount.toDoubleOrNull() ?: 0.0
+                                    if (finalAmount > 0 && selectedCategoryId != null) {
+                                        if (isEditMode && expenseToEdit != null) {
+                                            viewModel.updateExpense(expenseToEdit, finalAmount, selectedCategoryId!!, note)
+                                            onNavigateBack()
+                                        } else {
+                                            viewModel.addExpense(finalAmount, selectedCategoryId!!, note, selectedDateMillis)
+                                            onNavigateToDashboard()
+                                        }
                                     }
                                 }
                             }
                         )
                     }
                 }
-
-                // 底部间距
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
+}
+
+private fun formatDoubleToString(d: Double): String {
+    return if (d == d.toLong().toDouble()) d.toLong().toString() else d.toString()
 }
 
 private fun formatDateLabel(millis: Long): String {
@@ -365,32 +408,28 @@ private fun NumericKeypadWithSign(
     onConfirmClick: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        // 第1行：7 8 9 ⌫
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             KeypadButton("7", Modifier.weight(1f)) { onNumberClick("7") }
             KeypadButton("8", Modifier.weight(1f)) { onNumberClick("8") }
             KeypadButton("9", Modifier.weight(1f)) { onNumberClick("9") }
             KeypadButton("⌫", Modifier.weight(1f), isSpecial = true) { onDeleteClick() }
         }
-        // 第2行：4 5 6 ✓
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             KeypadButton("4", Modifier.weight(1f)) { onNumberClick("4") }
             KeypadButton("5", Modifier.weight(1f)) { onNumberClick("5") }
             KeypadButton("6", Modifier.weight(1f)) { onNumberClick("6") }
-            KeypadButton("✓", Modifier.weight(1f), isPrimary = true) { onConfirmClick() }
+            KeypadButton("+", Modifier.weight(1f), isSpecial = true) { onPlusClick() }
         }
-        // 第3行：1 2 3 + −
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             KeypadButton("1", Modifier.weight(1f)) { onNumberClick("1") }
             KeypadButton("2", Modifier.weight(1f)) { onNumberClick("2") }
             KeypadButton("3", Modifier.weight(1f)) { onNumberClick("3") }
-            KeypadButton("+", Modifier.weight(1f), isSpecial = true) { onPlusClick() }
             KeypadButton("−", Modifier.weight(1f), isSpecial = true) { onMinusClick() }
         }
-        // 第4行：小数点 0（双宽）
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            KeypadButton("0", Modifier.weight(2f)) { onNumberClick("0") }
             KeypadButton("·", Modifier.weight(1f), isSpecial = true) { onDecimalClick() }
-            KeypadButton("0", Modifier.weight(3f)) { onNumberClick("0") }
+            KeypadButton("✓", Modifier.weight(1f), isPrimary = true) { onConfirmClick() }
         }
     }
 }
@@ -406,14 +445,9 @@ private fun KeypadButton(
 ) {
     Box(
         modifier = modifier
-            .height(56.dp)
+            .height(51.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(
-                when {
-                    isPrimary -> Primary
-                    else -> Surface
-                }
-            )
+            .background(if (isPrimary) Primary else Surface)
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
