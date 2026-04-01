@@ -1,22 +1,19 @@
 package com.wealth.manager.ui.add
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -48,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -86,7 +84,7 @@ fun AddExpenseScreen(
     var pendingOperator by remember { mutableStateOf<String?>(null) }
     var shouldResetInput by remember { mutableStateOf(false) }
 
-    // 拦截系统滑动返回，确保滑动和按返回键行为一致
+    // 拦截系统滑动返回
     BackHandler { onNavigateBack() }
 
     // 日期选择弹窗
@@ -131,8 +129,8 @@ fun AddExpenseScreen(
 
     // 计算逻辑函数
     val performCalculation = {
-        val current = amount.toDoubleOrNull() ?: 0.0
         if (pendingValue != null && pendingOperator != null) {
+            val current = if (shouldResetInput) 0.0 else (amount.toDoubleOrNull() ?: 0.0)
             val result = when (pendingOperator) {
                 "+" -> pendingValue!! + current
                 "−" -> pendingValue!! - current
@@ -141,6 +139,22 @@ fun AddExpenseScreen(
             amount = formatDoubleToString(result)
             pendingValue = null
             pendingOperator = null
+            shouldResetInput = false
+        }
+    }
+
+    // 实时显示的金额（计算结果预览）
+    val displayAmount = remember(amount, pendingValue, pendingOperator, shouldResetInput) {
+        if (pendingOperator != null && pendingValue != null) {
+            val current = if (shouldResetInput) 0.0 else (amount.toDoubleOrNull() ?: 0.0)
+            val result = when (pendingOperator) {
+                "+" -> pendingValue!! + current
+                "−" -> pendingValue!! - current
+                else -> current
+            }
+            formatDoubleToString(result)
+        } else {
+            amount
         }
     }
 
@@ -185,9 +199,6 @@ fun AddExpenseScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
-        val imePadding = WindowInsets.ime.asPaddingValues()
-        val bottomPad = (imePadding.calculateBottomPadding() + 250.dp).coerceAtLeast(16.dp)
-
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -196,18 +207,12 @@ fun AddExpenseScreen(
                     detectTapGestures(onTap = { focusManager.clearFocus() })
                 }
         ) {
-            // 底层占位
-            Box(
+            Column(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
+                    .fillMaxSize()
                     .navigationBarsPadding()
             ) {
-                Spacer(modifier = Modifier.height(250.dp))
-            }
-
-            Column(modifier = Modifier.fillMaxSize()) {
-                // 类别选择
+                // 类别选择区域
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -249,12 +254,16 @@ fun AddExpenseScreen(
                     }
                 }
 
-                // 底部输入区域卡片
+                // 顶部区分线
+                HorizontalDivider(
+                    thickness = 0.5.dp,
+                    color = TextSecondary.copy(alpha = 0.15f)
+                )
+
+                // 底部输入区域卡片 - 改为占满宽度并移除内部多余分割线
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = bottomPad - 250.dp),
-                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RectangleShape,
                     colors = CardDefaults.cardColors(containerColor = Background),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
@@ -290,26 +299,17 @@ fun AddExpenseScreen(
                                 )
                             }
 
-                            Column(horizontalAlignment = Alignment.End) {
-                                if (pendingOperator != null && pendingValue != null) {
-                                    Text(
-                                        text = "${formatDoubleToString(pendingValue!!)} $pendingOperator",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Primary
-                                    )
-                                }
-                                Text(
-                                    text = "¥ $amount",
-                                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    textAlign = TextAlign.End
-                                )
-                            }
+                            // 直接在金额区显示实时结果
+                            Text(
+                                text = "¥ $displayAmount",
+                                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.End
+                            )
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
-                        HorizontalDivider(thickness = 0.5.dp, color = TextSecondary.copy(alpha = 0.2f))
-                        Spacer(modifier = Modifier.height(8.dp))
+                        // 移除这里的分割线，增加间距
+                        Spacer(modifier = Modifier.height(16.dp))
 
                         NumericKeypadWithSign(
                             onNumberClick = { digit ->
@@ -351,24 +351,22 @@ fun AddExpenseScreen(
                             onConfirmClick = {
                                 if (pendingOperator != null) {
                                     performCalculation()
-                                    shouldResetInput = true
-                                } else {
-                                    val finalAmount = amount.toDoubleOrNull() ?: 0.0
-                                    if (finalAmount > 0 && selectedCategoryId != null) {
-                                        if (isEditMode && expenseToEdit != null) {
-                                            viewModel.updateExpense(expenseToEdit, finalAmount, selectedCategoryId!!, note)
-                                            onNavigateBack()
-                                        } else {
-                                            viewModel.addExpense(finalAmount, selectedCategoryId!!, note, selectedDateMillis)
-                                            onNavigateToDashboard()
-                                        }
+                                }
+                                
+                                val finalAmount = amount.toDoubleOrNull() ?: 0.0
+                                if (finalAmount > 0 && selectedCategoryId != null) {
+                                    if (isEditMode && expenseToEdit != null) {
+                                        viewModel.updateExpense(expenseToEdit, finalAmount, selectedCategoryId!!, note)
+                                        onNavigateBack()
+                                    } else {
+                                        viewModel.addExpense(finalAmount, selectedCategoryId!!, note, selectedDateMillis)
+                                        onNavigateToDashboard()
                                     }
                                 }
                             }
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
@@ -445,7 +443,7 @@ private fun KeypadButton(
 ) {
     Box(
         modifier = modifier
-            .height(51.dp)
+            .height(49.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(if (isPrimary) Primary else Surface)
             .clickable(enabled = enabled, onClick = onClick),
@@ -455,7 +453,7 @@ private fun KeypadButton(
             "⌫" -> Icon(
                 imageVector = Icons.AutoMirrored.Filled.Backspace,
                 contentDescription = "删除",
-                tint = if (enabled) TextSecondary else TextSecondary.copy(alpha = 0.3f)
+                tint = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
             )
             "✓" -> Icon(
                 imageVector = Icons.Default.Check,
@@ -464,10 +462,14 @@ private fun KeypadButton(
             )
             else -> Text(
                 text = text,
-                style = MaterialTheme.typography.headlineSmall,
+                style = if (text == "·") {
+                    MaterialTheme.typography.headlineSmall.copy(fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                } else {
+                    MaterialTheme.typography.headlineSmall
+                },
                 color = when {
                     isPrimary -> MaterialTheme.colorScheme.onPrimary
-                    isSpecial -> TextSecondary
+                    isSpecial -> MaterialTheme.colorScheme.onSurface
                     enabled -> MaterialTheme.colorScheme.onSurface
                     else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
                 }
