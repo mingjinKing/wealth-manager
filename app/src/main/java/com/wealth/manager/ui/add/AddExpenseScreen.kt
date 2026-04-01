@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -168,40 +169,16 @@ fun AddExpenseScreen(
                     detectTapGestures(onTap = { focusManager.clearFocus() })
                 }
         ) {
-            // 【底层】：自定义数字键盘，永远固定在底部
-            // 系统键盘弹出时直接覆盖在上面（拉帘效果）
+            // 【底层】：留空占位，键盘已被整合到上层卡片中
+            // 系统键盘弹出时直接覆盖在这里
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
                     .navigationBarsPadding()
             ) {
-                NumericKeypadWithSign(
-                    onNumberClick = { digit ->
-                        amount = if (amount == "0") digit else amount + digit
-                    },
-                    onDecimalClick = {
-                        if (!amount.contains(".")) amount += "."
-                    },
-                    onPlusClick = { },
-                    onMinusClick = { },
-                    onDeleteClick = {
-                        amount = if (amount.length > 1) amount.dropLast(1) else "0"
-                    },
-                    onConfirmClick = {
-                        val finalAmount = amount.toDoubleOrNull() ?: 0.0
-                        if (finalAmount > 0 && selectedCategoryId != null) {
-                            if (isEditMode && expenseToEdit != null) {
-                                viewModel.updateExpense(expenseToEdit, finalAmount, selectedCategoryId!!, note)
-                                onNavigateBack()
-                            } else {
-                                viewModel.addExpense(finalAmount, selectedCategoryId!!, note, selectedDateMillis)
-                                onNavigateToDashboard()
-                            }
-                        }
-                    }
-                )
+                // 留出卡片内键盘区域的高度（约180dp），使卡片覆盖在此区域之上
+                Spacer(modifier = Modifier.height(180.dp))
             }
 
             // 【上层】：类别列表 + 备注/金额，固定260dp底部留空给底层数字键盘
@@ -251,51 +228,97 @@ fun AddExpenseScreen(
                     }
                 }
 
-                // 音符 + 金额 并排一行
-                Row(
+                // 音符 + 金额 + 数字键盘 — 统一卡片
+                Card(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
-                    Card(
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = Surface),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    Column(
+                        modifier = Modifier.padding(12.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 12.dp)
+                        // 第一行：备注 + 金额
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            if (note.isEmpty()) {
-                                Text(
-                                    text = "备注",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = TextSecondary.copy(alpha = 0.5f)
+                            // 备注输入框
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Surface)
+                                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                            ) {
+                                if (note.isEmpty()) {
+                                    Text(
+                                        text = "添加备注",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = TextSecondary.copy(alpha = 0.5f)
+                                    )
+                                }
+                                BasicTextField(
+                                    value = note,
+                                    onValueChange = { if (it.length <= 50) note = it },
+                                    textStyle = TextStyle(fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface),
+                                    cursorBrush = SolidColor(Primary),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true
                                 )
                             }
-                            BasicTextField(
-                                value = note,
-                                onValueChange = { if (it.length <= 50) note = it },
-                                textStyle = TextStyle(fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface),
-                                cursorBrush = SolidColor(Primary),
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true
+
+                            // 金额显示
+                            Text(
+                                text = "¥ $amount",
+                                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.End
                             )
                         }
-                    }
 
-                    Text(
-                        text = "¥ $amount",
-                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onBackground,
-                        textAlign = TextAlign.End
-                    )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // 分隔线
+                        HorizontalDivider(
+                            thickness = 0.5.dp,
+                            color = TextSecondary.copy(alpha = 0.2f)
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // 数字键盘
+                        NumericKeypadWithSign(
+                            onNumberClick = { digit ->
+                                amount = if (amount == "0") digit else amount + digit
+                            },
+                            onDecimalClick = {
+                                if (!amount.contains(".")) amount += "."
+                            },
+                            onPlusClick = { },
+                            onMinusClick = { },
+                            onDeleteClick = {
+                                amount = if (amount.length > 1) amount.dropLast(1) else "0"
+                            },
+                            onConfirmClick = {
+                                val finalAmount = amount.toDoubleOrNull() ?: 0.0
+                                if (finalAmount > 0 && selectedCategoryId != null) {
+                                    if (isEditMode && expenseToEdit != null) {
+                                        viewModel.updateExpense(expenseToEdit, finalAmount, selectedCategoryId!!, note)
+                                        onNavigateBack()
+                                    } else {
+                                        viewModel.addExpense(finalAmount, selectedCategoryId!!, note, selectedDateMillis)
+                                        onNavigateToDashboard()
+                                    }
+                                }
+                            }
+                        )
+                    }
                 }
 
-                // 固定200dp底部留空（3行键盘：3*56+2*8+12=196dp），确保底层数字键盘始终可见
-                Spacer(modifier = Modifier.height(200.dp))
+                // 底部留空（卡片本身在底层Box中会被系统键盘覆盖）
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
