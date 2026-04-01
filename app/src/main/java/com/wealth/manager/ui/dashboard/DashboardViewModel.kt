@@ -50,10 +50,6 @@ class DashboardViewModel @Inject constructor(
                 _state.value = _state.value.copy(isLoading = true)
             }
             
-            // Note: Keep allExpensesPage and lastLoadedDate updated correctly
-            // When refreshing, we usually want to reload the first page or everything already loaded.
-            // To keep it simple and consistent with pagination, we reload the first page.
-            
             val monthStart = getCurrentMonthRange().first
             val (recent7DaysStart, recent7DaysEnd) = getLast7DaysRange()
 
@@ -63,33 +59,37 @@ class DashboardViewModel @Inject constructor(
             val monthExpensesDeferred = async { expenseDao.getExpensesByDateRange(monthStart, System.currentTimeMillis()).first() }
             val recent7DaysDeferred = async { expenseDao.getExpensesByDateRange(recent7DaysStart, recent7DaysEnd).first() }
 
-            // 加载首页第一页 (or we could reload up to current allExpensesPage.size if we want to maintain scroll position, but that's complex)
             val firstPage = expenseDao.getExpensesPaginated(Long.MAX_VALUE, PAGE_SIZE)
             allExpensesPage = firstPage.toMutableList()
-            if (firstPage.isNotEmpty()) {
-                lastLoadedDate = firstPage.last().date
-            } else {
-                lastLoadedDate = Long.MAX_VALUE
-            }
+            lastLoadedDate = if (firstPage.isNotEmpty()) firstPage.last().date else Long.MAX_VALUE
 
             val categories = categoriesDeferred.await()
             val recentStats = weekStatsDeferred.await()
             val monthExpenses = monthExpensesDeferred.await()
             val recent7DaysExpenses = recent7DaysDeferred.await()
 
-            val dailyExpenses = groupExpensesByDay(allExpensesPage, categories)
-            val monthTotal = monthExpenses.sumOf { it.amount }
-            val recent7DaysTotal = recent7DaysExpenses.sumOf { it.amount }
+            // 区分收入和支出：假设分类名包含“收入”的为收入
+            val incomeCategoryIds = categories.filter { it.name.contains("收入") }.map { it.id }.toSet()
+            
+            val monthIncome = monthExpenses.filter { it.categoryId in incomeCategoryIds }.sumOf { it.amount }
+            val monthTotalExpense = monthExpenses.filter { it.categoryId !in incomeCategoryIds }.sumOf { it.amount }
+            
+            val recent7DaysTotalExpense = recent7DaysExpenses.filter { it.categoryId !in incomeCategoryIds }.sumOf { it.amount }
 
+            val dailyExpenses = groupExpensesByDay(allExpensesPage, categories)
+
+            // 激励层逻辑
             val avgLast4Weeks = recentStats.take(4).map { it.totalAmount }.average()
-                .takeIf { !it.isNaN() } ?: recent7DaysTotal
-            val savedAmount = avgLast4Weeks - recent7DaysTotal
-            val isTriggered = savedAmount > 100 && savedAmount > avgLast4Weeks * 0.2
+                .takeIf { !it.isNaN() } ?: recent7DaysTotalExpense
+            val savedAmount = avgLast4Weeks - recent7DaysTotalExpense
+            
+            // 降低触发门槛以便展示激励层，或根据用户需求“启用”
+            val isTriggered = savedAmount > 0 
             val wowPreview = if (isTriggered) {
                 WowPreview(
                     savedAmount = savedAmount,
                     isTriggered = true,
-                    reason = "本周消费控制良好"
+                    reason = if (savedAmount > 100) "本周消费控制极佳！" else "继续保持良好的消费习惯"
                 )
             } else null
 
@@ -97,8 +97,9 @@ class DashboardViewModel @Inject constructor(
                 isLoading = false,
                 isLoadingMore = false,
                 hasMorePages = firstPage.size >= PAGE_SIZE,
-                monthTotal = monthTotal,
-                recent7DaysTotal = recent7DaysTotal,
+                monthTotal = monthTotalExpense,
+                monthIncome = monthIncome,
+                recent7DaysTotal = recent7DaysTotalExpense,
                 dailyExpenses = dailyExpenses,
                 wowPreview = wowPreview,
                 categories = categories

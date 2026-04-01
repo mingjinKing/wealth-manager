@@ -1,18 +1,22 @@
 package com.wealth.manager.ui.dashboard
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -40,6 +44,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -47,10 +52,16 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.wealth.manager.R
 import com.wealth.manager.ui.theme.Primary
 import com.wealth.manager.ui.theme.Surface
 import com.wealth.manager.ui.theme.TextSecondary
@@ -61,15 +72,21 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
-    onNavigateToAdd: (Long?) -> Unit,   // Long? = expense ID to edit, null = add mode
-    onOpenDrawer: () -> Unit = {},      // 打开左侧抽屉菜单
+    onNavigateToAdd: (Long?) -> Unit,
+    onOpenDrawer: () -> Unit = {},
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
     var selectedExpense by remember { mutableStateOf<ExpenseItem?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
 
-    // 每次进入页面时刷新数据
+    // 使用存放在 drawable 目录下的照片
+    val backgroundResources = listOf(
+        R.drawable.background_1,
+        R.drawable.background_2
+    )
+    var currentBgIndex by remember { mutableIntStateOf(0) }
+
     LaunchedEffect(Unit) {
         viewModel.loadDashboardData(showLoading = false)
     }
@@ -77,25 +94,19 @@ fun DashboardScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "💰 消费透视镜",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                },
+                title = { },
                 navigationIcon = {
                     IconButton(onClick = onOpenDrawer) {
                         Icon(
                             imageVector = Icons.Default.Menu,
-                            contentDescription = "菜单"
+                            contentDescription = "菜单",
+                            tint = Color.White
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent
                 )
             )
         },
@@ -103,13 +114,10 @@ fun DashboardScreen(
             FloatingActionButton(
                 onClick = { onNavigateToAdd(null) },
                 containerColor = Primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
+                contentColor = Color.White,
                 shape = CircleShape
             ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "添加记账"
-                )
+                Icon(imageVector = Icons.Default.Add, contentDescription = "添加记账")
             }
         },
         floatingActionButtonPosition = FabPosition.Center,
@@ -132,53 +140,50 @@ fun DashboardScreen(
 
         LazyColumn(
             state = listState,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            item { Spacer(modifier = Modifier.height(4.dp)) }
-
+            // 1. 概览层
             item {
                 MonthOverviewCard(
                     monthTotal = state.monthTotal,
-                    recent7DaysTotal = state.recent7DaysTotal
+                    monthIncome = state.monthIncome,
+                    recent7DaysTotal = state.recent7DaysTotal,
+                    bgResourceId = backgroundResources[currentBgIndex],
+                    onBgClick = {
+                        currentBgIndex = (currentBgIndex + 1) % backgroundResources.size
+                    }
                 )
             }
 
+            // 2. 激励层
             state.wowPreview?.let { wow ->
                 item {
-                    WowPreviewCard(wowPreview = wow)
+                    Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                        WowPreviewCard(wowPreview = wow)
+                    }
                 }
             }
 
+            // 3. 记账列表
             if (state.dailyExpenses.isEmpty() && !state.isLoading) {
                 item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Surface),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(40.dp),
-                            contentAlignment = Alignment.Center
+                    Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Surface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                         ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    text = "暂无记账记录",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = TextSecondary
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "点击 + 开始记账",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = TextSecondary
-                                )
+                            Box(
+                                modifier = Modifier.fillMaxWidth().padding(40.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(text = "暂无记账记录", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(text = "点击 + 开始记账", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                                }
                             }
                         }
                     }
@@ -186,40 +191,29 @@ fun DashboardScreen(
             } else {
                 state.dailyExpenses.forEach { daily ->
                     item(key = daily.dateMillis) {
-                        DailyExpenseCard(
-                            dailyExpense = daily,
-                            onExpenseClick = { item ->
-                                // 点击直接修改
-                                onNavigateToAdd(item.expense.id)
-                            },
-                            onExpenseLongClick = { item ->
-                                // 长按弹出删除确认
-                                selectedExpense = item
-                                showDeleteDialog = true
-                            }
-                        )
+                        Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                            DailyExpenseCard(
+                                dailyExpense = daily,
+                                onExpenseClick = { onNavigateToAdd(it.expense.id) },
+                                onExpenseLongClick = { item ->
+                                    selectedExpense = item
+                                    showDeleteDialog = true
+                                }
+                            )
+                        }
                     }
                 }
             }
 
             if (state.isLoadingMore) {
                 item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp,
-                            color = Primary
-                        )
+                    Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp, color = Primary)
                     }
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(32.dp)) }
+            item { Spacer(modifier = Modifier.height(80.dp)) }
         }
 
         if (showDeleteDialog && selectedExpense != null) {
@@ -251,47 +245,90 @@ fun DashboardScreen(
 @Composable
 fun MonthOverviewCard(
     monthTotal: Double,
-    recent7DaysTotal: Double
+    monthIncome: Double,
+    recent7DaysTotal: Double,
+    bgResourceId: Int,
+    onBgClick: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(4f / 3f) // 设置比例为 4:3
+            .clickable { onBgClick() }
     ) {
+        // 背景照片
+        Image(
+            painter = painterResource(id = bgResourceId),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+
+        // 渐变蒙层：确保照片过亮时文字依然清晰
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Black.copy(alpha = 0.4f),
+                            Color.Transparent,
+                            Color.Black.copy(alpha = 0.3f)
+                        )
+                    )
+                )
+        )
+
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .padding(horizontal = 24.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.Bottom
         ) {
+            Text(
+                text = "本月支出",
+                style = MaterialTheme.typography.labelLarge,
+                color = Color.White.copy(alpha = 0.9f)
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "¥ ${NumberFormat.getNumberInstance(Locale.CHINA).format(monthTotal)}",
+                style = MaterialTheme.typography.displayMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 42.sp
+                ),
+                color = Color.White
+            )
+
+            Spacer(modifier = Modifier.height(28.dp))
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
                     Text(
-                        text = "本月支出",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary
+                        text = "本月收入",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.White.copy(alpha = 0.8f)
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "¥ ${NumberFormat.getNumberInstance(Locale.CHINA).format(monthTotal)}",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        text = "¥ ${NumberFormat.getNumberInstance(Locale.CHINA).format(monthIncome)}",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                        color = Color.White
                     )
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "近7日",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary
+                        text = "近7日支出",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.White.copy(alpha = 0.8f)
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "¥ ${NumberFormat.getNumberInstance(Locale.CHINA).format(recent7DaysTotal)}",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = TextSecondary
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                        color = Color.White
                     )
                 }
             }
@@ -426,7 +463,7 @@ fun WowPreviewCard(wowPreview: WowPreview) {
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "\uD83C\uDF89",
+                        text = "🎉",
                         style = MaterialTheme.typography.titleMedium
                     )
                     Spacer(modifier = Modifier.width(8.dp))

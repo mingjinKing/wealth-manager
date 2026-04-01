@@ -8,6 +8,7 @@ data class DashboardState(
     val isLoadingMore: Boolean = false,
     val hasMorePages: Boolean = true,
     val monthTotal: Double = 0.0,
+    val monthIncome: Double = 0.0, // 新增：月收入
     val recent7DaysTotal: Double = 0.0,
     val dailyExpenses: List<DailyExpense> = emptyList(),
     val wowPreview: WowPreview? = null,
@@ -24,13 +25,6 @@ data class DailyExpense(
 data class ExpenseItem(
     val expense: ExpenseEntity,
     val category: CategoryEntity
-)
-
-data class CategorySpending(
-    val category: CategoryEntity,
-    val amount: Double,
-    val percentage: Float,
-    val isOverBaseline: Boolean
 )
 
 data class WowPreview(
