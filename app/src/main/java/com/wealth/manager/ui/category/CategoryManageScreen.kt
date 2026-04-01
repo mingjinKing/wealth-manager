@@ -62,7 +62,7 @@ private val emojiList = listOf(
     "\uD83D\uDCBC", "\uD83C\uDF93", "\uD83D\uDCB5", "\uD83D\uDE84"
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun CategoryManageScreen(
     viewModel: CategoryManageViewModel = hiltViewModel()
