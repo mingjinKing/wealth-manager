@@ -77,7 +77,7 @@ val bottomNavItems = listOf(
         route = Screen.Dashboard.route
     ),
     BottomNavItem(
-        label = "透视",
+        label = "算算账",
         selectedIcon = Icons.Filled.Insights,
         unselectedIcon = Icons.Outlined.Insights,
         route = Screen.Insights.route
