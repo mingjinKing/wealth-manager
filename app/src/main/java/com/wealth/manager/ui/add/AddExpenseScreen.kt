@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -166,13 +168,15 @@ fun AddExpenseScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
-        // adjustResize + imePadding：窗口高度自动收缩，imePadding 减少内容区高度
-        // 底层固定 180dp 数字键盘区域，键盘弹出时被覆盖
+        // adjustNothing + 动态 bottomPadding
+        // 键盘高度通过 WindowInsets.ime.getBottom() 获取，Card 动态调整底部padding避免被覆盖
+        val imePadding = WindowInsets.ime.asPaddingValues()
+        val bottomPad = (imePadding.calculateBottomPadding() + 180.dp).coerceAtLeast(16.dp)
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = paddingValues.calculateTopPadding())
-                .imePadding()
                 .pointerInput(Unit) {
                     detectTapGestures(onTap = { focusManager.clearFocus() })
                 }
@@ -188,7 +192,6 @@ fun AddExpenseScreen(
             }
 
             // 上层：类别列表 + 备注/金额
-            // Spacer(weight) 在键盘弹出时压缩，将 Card 推上键盘上方
             Column(
                 modifier = Modifier.fillMaxSize()
             ) {
@@ -234,12 +237,11 @@ fun AddExpenseScreen(
                     }
                 }
 
-                // 推底 Spacer：键盘弹出时压缩，Card 固定在键盘上方
-                androidx.compose.foundation.layout.Spacer(modifier = Modifier.weight(1f))
-
                 // 底部统一卡片
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = bottomPad - 180.dp),  // 180dp给底层键盘，差值推高Card
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = Background),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
