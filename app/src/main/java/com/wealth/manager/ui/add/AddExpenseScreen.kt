@@ -56,6 +56,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.wealth.manager.ui.theme.Background
@@ -171,7 +172,9 @@ fun AddExpenseScreen(
         // 动态计算系统键盘高度
         // 键盘按键(4*56=224) + 按键间距(3*8=24) + Card底部padding(12) + 分隔线及Spacer(4+0.5+4=8.5) = 268.5dp
         val contentHeightBelowNote = 268.5.dp
-        val imeHeight = WindowInsets.ime.getBottom(LocalDensity.current).toDp().coerceAtLeast(0.dp)
+        val density = LocalDensity.current
+        val imeHeightPx = WindowInsets.ime.getBottom(density)
+        val imeHeight = (imeHeightPx / density.density).dp
         val extraBottomPadding = if (imeHeight > contentHeightBelowNote) imeHeight - contentHeightBelowNote else 0.dp
 
         // Z轴分层：底层放数字键盘（永远固定），上层放类别+输入框
