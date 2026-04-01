@@ -10,4 +10,5 @@
     <color name="onSurface">#FFFFFF</color>
     <color name="textSecondary">#9E9EA4</color>
     <color name="divider">#2D2D44</color>
+    <color name="white">#FFFFFF</color>
 </resources>

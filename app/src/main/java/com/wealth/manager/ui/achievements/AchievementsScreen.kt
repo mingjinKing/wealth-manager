@@ -57,7 +57,7 @@ fun AchievementsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(text = "财务成就", fontWeight = FontWeight.Bold) },
+                title = { Text(text = "成长", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
@@ -124,6 +124,7 @@ fun AchievementsScreen(
                         title = "预算管理 (${if (isMonthly) "月" else "周"})",
                         description = "${if (isMonthly) "本月" else "本周"}总预算：¥${formatAmount(budget)}",
                         currentInfo = "已支出：${if (state.isBudgetVisible) "¥" + formatAmount(spent) else "****"}",
+                        subInfo = "可去算算账查看明细",
                         progress = budgetProgress.coerceAtMost(1f),
                         progressColor = if (budgetProgress > 0.9f) Warning else Primary,
                         isVisible = state.isBudgetVisible,
@@ -148,7 +149,7 @@ fun AchievementsScreen(
     if (showHelpDialog) {
         AlertDialog(
             onDismissRequest = { showHelpDialog = false },
-            title = { Text("财务成就说明") },
+            title = { Text("成长说明") },
             text = {
                 Text(
                     text = "本页面帮助你追踪长期财务目标和短期支出预算。\n\n• 点击资产卡片跳转管理详情\n• 点击目标卡片可重新设定金额和时间\n• 每个卡片可独立控制金额可见性",
@@ -427,6 +428,7 @@ fun GoalCard(
     title: String,
     description: String,
     currentInfo: String,
+    subInfo: String? = null,
     progress: Float,
     timeProgress: Float? = null,
     progressColor: Color = Primary,
@@ -470,6 +472,16 @@ fun GoalCard(
                 text = currentInfo, 
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold, lineHeight = 24.sp)
             )
+            
+            if (subInfo != null) {
+                Text(
+                    text = subInfo,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+
             Spacer(modifier = Modifier.height(10.dp))
             
             // 金额进度

@@ -51,13 +51,16 @@ class DashboardViewModel @Inject constructor(
             }
             
             val monthStart = getCurrentMonthRange().first
-            val (recent7DaysStart, recent7DaysEnd) = getLast7DaysRange()
+            val (sevenDaysStart, sevenDaysEnd) = getLast7DaysRange()
+            
+            // 限制在当月内：取当月开始时间和 7 天前开始时间的较晚者
+            val recent7DaysStart = maxOf(monthStart, sevenDaysStart)
 
             // 并行加载所有数据（Flow → List）
             val categoriesDeferred = async { categoryDao.getAllCategories().first() }
             val weekStatsDeferred = async { weekStatsDao.getRecentWeekStats(4).first() }
             val monthExpensesDeferred = async { expenseDao.getExpensesByDateRange(monthStart, System.currentTimeMillis()).first() }
-            val recent7DaysDeferred = async { expenseDao.getExpensesByDateRange(recent7DaysStart, recent7DaysEnd).first() }
+            val recent7DaysDeferred = async { expenseDao.getExpensesByDateRange(recent7DaysStart, sevenDaysEnd).first() }
 
             val firstPage = expenseDao.getExpensesPaginated(Long.MAX_VALUE, PAGE_SIZE)
             allExpensesPage = firstPage.toMutableList()
@@ -68,8 +71,8 @@ class DashboardViewModel @Inject constructor(
             val monthExpenses = monthExpensesDeferred.await()
             val recent7DaysExpenses = recent7DaysDeferred.await()
 
-            // 区分收入和支出：假设分类名包含“收入”的为收入
-            val incomeCategoryIds = categories.filter { it.name.contains("收入") }.map { it.id }.toSet()
+            // 区分收入和支出：使用 CategoryEntity 的 type 字段
+            val incomeCategoryIds = categories.filter { it.type == "INCOME" }.map { it.id }.toSet()
             
             val monthIncome = monthExpenses.filter { it.categoryId in incomeCategoryIds }.sumOf { it.amount }
             val monthTotalExpense = monthExpenses.filter { it.categoryId !in incomeCategoryIds }.sumOf { it.amount }
@@ -172,10 +175,16 @@ class DashboardViewModel @Inject constructor(
                     val cat = categoryMap[expense.categoryId]
                     if (cat != null) ExpenseItem(expense = expense, category = cat) else null
                 }
+                
+                // 计算该日的支出总计（不含收入）
+                val dayTotalExpense = expenseItems
+                    .filter { it.category.type == "EXPENSE" }
+                    .sumOf { it.expense.amount }
+
                 DailyExpense(
                     dateLabel = dateLabel,
                     dateMillis = dayStart,
-                    dayTotal = dayExpenses.sumOf { it.amount },
+                    dayTotal = dayTotalExpense,
                     expenses = expenseItems
                 )
             }

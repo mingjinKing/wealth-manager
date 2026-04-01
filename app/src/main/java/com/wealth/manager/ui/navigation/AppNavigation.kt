@@ -1,5 +1,6 @@
 package com.wealth.manager.ui.navigation
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -44,6 +45,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -51,6 +53,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.wealth.manager.R
 import com.wealth.manager.ui.achievements.AchievementsScreen
 import com.wealth.manager.ui.add.AddExpenseScreen
 import com.wealth.manager.ui.assets.AssetManageScreen
@@ -85,7 +88,7 @@ val bottomNavItems = listOf(
         route = Screen.Insights.route
     ),
     BottomNavItem(
-        label = "成就",
+        label = "进阶",
         selectedIcon = Icons.Filled.Star,
         unselectedIcon = Icons.Outlined.Star,
         route = Screen.Achievements.route
@@ -135,15 +138,22 @@ fun AppNavigation() {
                             .background(Primary)
                             .padding(horizontal = 20.dp, vertical = 32.dp)
                     ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_logo),
+                            contentDescription = "App Logo",
+                            modifier = Modifier
+                                .size(64.dp)
+                                .padding(bottom = 12.dp)
+                        )
                         Text(
-                            text = "\uD83D\uDCB0 消费透视镜",
+                            text = "知财",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimary
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "管理你的每一笔消费",
+                            text = "知其财，治其财",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
                         )

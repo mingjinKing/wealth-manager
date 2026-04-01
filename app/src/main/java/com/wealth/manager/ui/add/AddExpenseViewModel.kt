@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -25,7 +26,14 @@ class AddExpenseViewModel @Inject constructor(
     private val _editingExpense = MutableStateFlow<ExpenseEntity?>(null)
     val editingExpense: StateFlow<ExpenseEntity?> = _editingExpense.asStateFlow()
 
+    private val _selectedTab = MutableStateFlow(0) // 0 for Expense, 1 for Income
+    val selectedTab: StateFlow<Int> = _selectedTab.asStateFlow()
+
     val categories: StateFlow<List<CategoryEntity>> = categoryDao.getAllCategories()
+        .combine(_selectedTab) { allCats, tabIndex ->
+            val type = if (tabIndex == 0) "EXPENSE" else "INCOME"
+            allCats.filter { it.type == type }
+        }
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     init {
@@ -34,26 +42,49 @@ class AddExpenseViewModel @Inject constructor(
 
     private fun ensureDefaultCategories() {
         viewModelScope.launch {
-            val count = categoryDao.getCategoryCount()
-            if (count == 0) {
-                val defaultCategories = listOf(
-                    CategoryEntity(name = "餐饮", icon = "🍗", color = "#ffc880"),
-                    CategoryEntity(name = "购物", icon = "🛍️", color = "#4A90D9"),
-                    CategoryEntity(name = "交通", icon = "🚌", color = "#E55B5B"),
-                    CategoryEntity(name = "娱乐", icon = "🎮", color = "#9C27B0"),
-                    CategoryEntity(name = "居住", icon = "🏠", color = "#4CAF50"),
-                    CategoryEntity(name = "医疗", icon = "🏥", color = "#F44336"),
-                    CategoryEntity(name = "学习", icon = "📚", color = "#2196F3"),
-                    CategoryEntity(name = "其他", icon = "📋", color = "#9E9E9E")
-                )
-                categoryDao.insertCategories(defaultCategories)
+            val defaultCategories = listOf(
+                // 支出分类
+                CategoryEntity(name = "餐饮", icon = "🍗", color = "#ffc880", type = "EXPENSE"),
+                CategoryEntity(name = "购物", icon = "🛍️", color = "#4A90D9", type = "EXPENSE"),
+                CategoryEntity(name = "交通", icon = "🚌", color = "#E55B5B", type = "EXPENSE"),
+                CategoryEntity(name = "娱乐", icon = "🎮", color = "#9C27B0", type = "EXPENSE"),
+                CategoryEntity(name = "居住", icon = "🏠", color = "#4CAF50", type = "EXPENSE"),
+                CategoryEntity(name = "医疗", icon = "🏥", color = "#F44336", type = "EXPENSE"),
+                CategoryEntity(name = "学习", icon = "📚", color = "#2196F3", type = "EXPENSE"),
+                CategoryEntity(name = "其他", icon = "📋", color = "#9E9E9E", type = "EXPENSE"),
+                // 收入分类
+                CategoryEntity(name = "工资", icon = "💰", color = "#4CAF50", type = "INCOME"),
+                CategoryEntity(name = "奖金", icon = "🧧", color = "#F44336", type = "INCOME"),
+                CategoryEntity(name = "兼职", icon = "🚲", color = "#FF9800", type = "INCOME"),
+                CategoryEntity(name = "理财", icon = "📈", color = "#2196F3", type = "INCOME"),
+                CategoryEntity(name = "礼金", icon = "🎁", color = "#E91E63", type = "INCOME"),
+                CategoryEntity(name = "报销", icon = "📝", color = "#00BCD4", type = "INCOME"),
+                CategoryEntity(name = "转卖", icon = "♻️", color = "#8BC34A", type = "INCOME"),
+                CategoryEntity(name = "其他收入", icon = "💸", color = "#9E9E9E", type = "INCOME")
+            )
+            
+            for (category in defaultCategories) {
+                if (categoryDao.getCategoryByName(category.name) == null) {
+                    categoryDao.insertCategory(category)
+                }
             }
         }
     }
 
+    fun setTab(index: Int) {
+        _selectedTab.value = index
+    }
+
     fun loadExpense(id: Long) {
         viewModelScope.launch {
-            _editingExpense.value = expenseDao.getExpenseById(id)
+            val expense = expenseDao.getExpenseById(id)
+            _editingExpense.value = expense
+            if (expense != null) {
+                val category = categoryDao.getCategoryById(expense.categoryId)
+                if (category != null) {
+                    _selectedTab.value = if (category.type == "INCOME") 1 else 0
+                }
+            }
         }
     }
 

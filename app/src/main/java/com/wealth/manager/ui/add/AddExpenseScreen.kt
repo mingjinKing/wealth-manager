@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,7 +18,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
@@ -34,6 +37,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -49,6 +56,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
@@ -65,6 +73,7 @@ import com.wealth.manager.ui.theme.Background
 import com.wealth.manager.ui.theme.Primary
 import com.wealth.manager.ui.theme.Surface
 import com.wealth.manager.ui.theme.TextSecondary
+import com.wealth.manager.ui.theme.Warning
 import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
@@ -77,6 +86,7 @@ fun AddExpenseScreen(
 ) {
     val categories by viewModel.categories.collectAsState()
     val editingExpense by viewModel.editingExpense.collectAsState()
+    val selectedTab by viewModel.selectedTab.collectAsState()
 
     var amount by remember { mutableStateOf("0") }
     var note by remember { mutableStateOf("") }
@@ -195,42 +205,69 @@ fun AddExpenseScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = if (isEditMode) "修改" else "添加账单",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Medium
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "返回",
-                            tint = MaterialTheme.colorScheme.onBackground
-                        )
-                    }
-                },
-                actions = {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { showDatePicker = true }
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
+            Column(modifier = Modifier.background(MaterialTheme.colorScheme.background)) {
+                TopAppBar(
+                    title = {
                         Text(
-                            text = formatDateLabel(selectedDateMillis),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Medium
+                            text = if (isEditMode) "修改账单" else "添加账单",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "返回",
+                                tint = MaterialTheme.colorScheme.onBackground
+                            )
+                        }
+                    },
+                    actions = {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { showDatePicker = true }
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = formatDateLabel(selectedDateMillis),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.Black,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent
+                    )
+                )
+                
+                TabRow(
+                    selectedTabIndex = selectedTab,
+                    containerColor = Color.Transparent,
+                    contentColor = Color.Black,
+                    divider = {},
+                    indicator = { tabPositions ->
+                        TabRowDefaults.SecondaryIndicator(
+                            Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                            color = Primary
                         )
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
-            )
+                ) {
+                    Tab(
+                        selected = selectedTab == 0,
+                        onClick = { viewModel.setTab(0); selectedCategoryId = null },
+                        text = { Text("添加账单", fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal, color = Color.Black) }
+                    )
+                    Tab(
+                        selected = selectedTab == 1,
+                        onClick = { viewModel.setTab(1); selectedCategoryId = null },
+                        text = { Text("添加收入", fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal, color = Color.Black) }
+                    )
+                }
+            }
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
@@ -247,48 +284,48 @@ fun AddExpenseScreen(
                     .fillMaxSize()
                     .navigationBarsPadding()
             ) {
-                // 类别选择区域
-                LazyColumn(
+                // 类别选择区域 - 升级为 4 列网格布局
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(4),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f)
-                        .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                        .weight(1f),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
-                    item {
-                        FlowRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                    items(categories.size) { index ->
+                        val category = categories[index]
+                        val isSelected = selectedCategoryId == category.id
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .combinedClickable(
+                                    onClick = { selectedCategoryId = category.id },
+                                    onLongClick = { categoryToDelete = category }
+                                )
+                                .padding(vertical = 4.dp)
                         ) {
-                            categories.forEach { category ->
-                                val isSelected = selectedCategoryId == category.id
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(20.dp))
-                                        .background(if (isSelected) Primary else Surface)
-                                        .combinedClickable(
-                                            onClick = { selectedCategoryId = category.id },
-                                            onLongClick = { categoryToDelete = category }
-                                        )
-                                        .padding(horizontal = 12.dp, vertical = 8.dp)
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                    ) {
-                                        Text(text = category.icon, style = MaterialTheme.typography.bodyMedium)
-                                        Text(
-                                            text = category.name,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary
-                                                    else MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
-                                }
+                            Box(
+                                modifier = Modifier
+                                    .size(52.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isSelected) Primary else Surface),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(text = category.icon, fontSize = 24.sp)
                             }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = category.name,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (isSelected) Primary else MaterialTheme.colorScheme.onSurface,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                maxLines = 1,
+                                textAlign = TextAlign.Center
+                            )
                         }
-                        Spacer(modifier = Modifier.height(16.dp))
                     }
                 }
 
@@ -298,7 +335,7 @@ fun AddExpenseScreen(
                     color = TextSecondary.copy(alpha = 0.15f)
                 )
 
-                // 底部输入区域卡片 - 改为占满宽度并移除内部多余分割线
+                // 底部输入区域卡片
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RectangleShape,
@@ -337,16 +374,14 @@ fun AddExpenseScreen(
                                 )
                             }
 
-                            // 直接在金额区显示实时结果
                             Text(
                                 text = "¥ $displayAmount",
                                 style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onSurface,
+                                color = if (selectedTab == 1) Color(0xFF4CAF50) else Warning,
                                 textAlign = TextAlign.End
                             )
                         }
 
-                        // 移除这里的分割线，增加间距
                         Spacer(modifier = Modifier.height(16.dp))
 
                         NumericKeypadWithSign(

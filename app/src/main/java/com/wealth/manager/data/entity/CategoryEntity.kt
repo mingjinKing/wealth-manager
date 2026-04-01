@@ -10,5 +10,6 @@ data class CategoryEntity(
     val name: String,
     val icon: String,
     val color: String,
+    val type: String = "EXPENSE", // "EXPENSE" or "INCOME"
     val isDefault: Boolean = true
 )

@@ -321,7 +321,7 @@ fun MonthOverviewCard(
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "近7日支出",
+                        text = "当月近7日支出",
                         style = MaterialTheme.typography.labelMedium,
                         color = Color.White.copy(alpha = 0.8f)
                     )
