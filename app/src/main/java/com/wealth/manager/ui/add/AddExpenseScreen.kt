@@ -294,8 +294,8 @@ fun AddExpenseScreen(
                     )
                 }
 
-                // 固定260dp底部留空，确保底层数字键盘始终可见
-                Spacer(modifier = Modifier.height(260.dp))
+                // 固定200dp底部留空（3行键盘：3*56+2*8+12=196dp），确保底层数字键盘始终可见
+                Spacer(modifier = Modifier.height(200.dp))
             }
         }
     }
@@ -350,11 +350,7 @@ private fun NumericKeypadWithSign(
             KeypadButton("8", Modifier.weight(1f)) { onNumberClick("8") }
             KeypadButton("9", Modifier.weight(1f)) { onNumberClick("9") }
             KeypadButton("·", Modifier.weight(1f), isSpecial = true) { onDecimalClick() }
-            Spacer(modifier = Modifier.weight(1f))
-        }
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            KeypadButton("0", Modifier.weight(1f)) { onNumberClick("0") }
-            Spacer(modifier = Modifier.weight(4f))
+            KeypadButton("0", Modifier.weight(2f)) { onNumberClick("0") }
         }
     }
 }
