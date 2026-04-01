@@ -69,6 +69,7 @@ import java.util.Locale
 @Composable
 fun DashboardScreen(
     onNavigateToAdd: (Long?) -> Unit,   // Long? = expense ID to edit, null = add mode
+    onOpenDrawer: () -> Unit = {},      // 打开左侧抽屉菜单
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -90,11 +91,11 @@ fun DashboardScreen(
                         )
                     }
                 },
-                actions = {
-                    IconButton(onClick = { }) {
+                navigationIcon = {
+                    IconButton(onClick = onOpenDrawer) {
                         Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "设置"
+                            imageVector = Icons.Default.Menu,
+                            contentDescription = "菜单"
                         )
                     }
                 },
