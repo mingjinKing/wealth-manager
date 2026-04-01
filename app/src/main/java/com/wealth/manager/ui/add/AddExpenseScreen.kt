@@ -350,7 +350,7 @@ private fun NumericKeypadWithSign(
             KeypadButton("8", Modifier.weight(1f)) { onNumberClick("8") }
             KeypadButton("9", Modifier.weight(1f)) { onNumberClick("9") }
             KeypadButton("·", Modifier.weight(1f), isSpecial = true) { onDecimalClick() }
-            KeypadButton("00", Modifier.weight(1f), isSpecial = true) { onNumberClick("00") }
+            Spacer(modifier = Modifier.weight(1f))
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             KeypadButton("0", Modifier.weight(1f)) { onNumberClick("0") }
