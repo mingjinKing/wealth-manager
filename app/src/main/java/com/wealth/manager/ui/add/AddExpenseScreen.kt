@@ -6,6 +6,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -165,8 +167,8 @@ fun AddExpenseScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
-        // Z轴分层：底层放数字键盘（永远固定），上层放类别+输入框（固定260dp底部留空）
-        Box(
+        // 使用 BoxWithConstraints 限制 categories 最大高度，让 Card 用 align(BottomCenter) 固定在底部
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = paddingValues.calculateTopPadding())
@@ -174,156 +176,140 @@ fun AddExpenseScreen(
                     detectTapGestures(onTap = { focusManager.clearFocus() })
                 }
         ) {
-            // 【底层】：留空占位，键盘已被整合到上层卡片中
-            // 系统键盘弹出时直接覆盖在这里
-            Box(
+            // 类别列表：最大高度 = 可用高度 - 卡片高度（268dp），超出可滚动
+            val cardHeight = 268.dp
+            LazyColumn(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .navigationBarsPadding()
+                    .heightIn(max = maxHeight - cardHeight)
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // 留出卡片内键盘区域的高度（约180dp），使卡片覆盖在此区域之上
-                Spacer(modifier = Modifier.height(180.dp))
-            }
-
-            // 【上层】：类别列表 + 备注/金额，固定260dp底部留空给底层数字键盘
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-            ) {
-                // 顶部：类别 Chips（填满剩余空间）
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    item {
-                        FlowRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            categories.forEach { category ->
-                                val isSelected = selectedCategoryId == category.id
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(20.dp))
-                                        .background(if (isSelected) Primary else Surface)
-                                        .clickable { selectedCategoryId = category.id }
-                                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                item {
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        categories.forEach { category ->
+                            val isSelected = selectedCategoryId == category.id
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(if (isSelected) Primary else Surface)
+                                    .clickable { selectedCategoryId = category.id }
+                                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                    ) {
-                                        Text(text = category.icon, style = MaterialTheme.typography.bodyMedium)
-                                        Text(
-                                            text = category.name,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary
-                                                    else MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
+                                    Text(text = category.icon, style = MaterialTheme.typography.bodyMedium)
+                                    Text(
+                                        text = category.name,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                                                else MaterialTheme.colorScheme.onSurface
+                                    )
                                 }
                             }
                         }
-                        Spacer(modifier = Modifier.height(16.dp))
                     }
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
+            }
 
-                // 音符 + 金额 + 数字键盘 — 统一卡片
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Background),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            // 底部卡片：align(BottomCenter) 固定在 Box 底部
+            // adjustResize 模式下，窗口高度 = 屏幕高 - 键盘高
+            // Card 固定在底部，备注/金额区域在 Card 顶部，键盘覆盖数字键盘区域
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Background),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                    // 第一行：备注 + 金额
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // 第一行：备注 + 金额
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        // 备注输入框
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Surface)
+                                .padding(horizontal = 12.dp, vertical = 10.dp)
                         ) {
-                            // 备注输入框
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(Surface)
-                                    .padding(horizontal = 12.dp, vertical = 10.dp)
-                            ) {
-                                if (note.isEmpty()) {
-                                    Text(
-                                        text = "添加备注",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = TextSecondary.copy(alpha = 0.5f)
-                                    )
-                                }
-                                BasicTextField(
-                                    value = note,
-                                    onValueChange = { if (it.length <= 50) note = it },
-                                    textStyle = TextStyle(fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface),
-                                    cursorBrush = SolidColor(Primary),
-                                    modifier = Modifier.fillMaxWidth(),
-                                    singleLine = true
+                            if (note.isEmpty()) {
+                                Text(
+                                    text = "添加备注",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = TextSecondary.copy(alpha = 0.5f)
                                 )
                             }
-
-                            // 金额显示
-                            Text(
-                                text = "¥ $amount",
-                                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onSurface,
-                                textAlign = TextAlign.End
+                            BasicTextField(
+                                value = note,
+                                onValueChange = { if (it.length <= 50) note = it },
+                                textStyle = TextStyle(fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface),
+                                cursorBrush = SolidColor(Primary),
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // 分隔线
-                        HorizontalDivider(
-                            thickness = 0.5.dp,
-                            color = TextSecondary.copy(alpha = 0.2f)
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // 数字键盘
-                        NumericKeypadWithSign(
-                            onNumberClick = { digit ->
-                                amount = if (amount == "0") digit else amount + digit
-                            },
-                            onDecimalClick = {
-                                if (!amount.contains(".")) amount += "."
-                            },
-                            onPlusClick = { },
-                            onMinusClick = { },
-                            onDeleteClick = {
-                                amount = if (amount.length > 1) amount.dropLast(1) else "0"
-                            },
-                            onConfirmClick = {
-                                val finalAmount = amount.toDoubleOrNull() ?: 0.0
-                                if (finalAmount > 0 && selectedCategoryId != null) {
-                                    if (isEditMode && expenseToEdit != null) {
-                                        viewModel.updateExpense(expenseToEdit, finalAmount, selectedCategoryId!!, note)
-                                        onNavigateBack()
-                                    } else {
-                                        viewModel.addExpense(finalAmount, selectedCategoryId!!, note, selectedDateMillis)
-                                        onNavigateToDashboard()
-                                    }
-                                }
-                            }
+                        // 金额显示
+                        Text(
+                            text = "¥ $amount",
+                            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.End
                         )
                     }
-                }
 
-                // 底部留空（卡片本身在底层Box中会被系统键盘覆盖）
-                Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // 分隔线
+                    HorizontalDivider(
+                        thickness = 0.5.dp,
+                        color = TextSecondary.copy(alpha = 0.2f)
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // 数字键盘
+                    NumericKeypadWithSign(
+                        onNumberClick = { digit ->
+                            amount = if (amount == "0") digit else amount + digit
+                        },
+                        onDecimalClick = {
+                            if (!amount.contains(".")) amount += "."
+                        },
+                        onPlusClick = { },
+                        onMinusClick = { },
+                        onDeleteClick = {
+                            amount = if (amount.length > 1) amount.dropLast(1) else "0"
+                        },
+                        onConfirmClick = {
+                            val finalAmount = amount.toDoubleOrNull() ?: 0.0
+                            if (finalAmount > 0 && selectedCategoryId != null) {
+                                if (isEditMode && expenseToEdit != null) {
+                                    viewModel.updateExpense(expenseToEdit, finalAmount, selectedCategoryId!!, note)
+                                    onNavigateBack()
+                                } else {
+                                    viewModel.addExpense(finalAmount, selectedCategoryId!!, note, selectedDateMillis)
+                                    onNavigateToDashboard()
+                                }
+                            }
+                        }
+                    )
+                }
             }
         }
     }
