@@ -17,6 +17,14 @@ interface ExpenseDao {
     @Query("SELECT * FROM expenses WHERE date >= :startDate AND date <= :endDate ORDER BY date DESC")
     fun getExpensesByDateRange(startDate: Long, endDate: Long): Flow<List<ExpenseEntity>>
 
+    // 分页查询：按日期倒序，每次加载完整日期
+    @Query("SELECT * FROM expenses WHERE date < :beforeDate ORDER BY date DESC LIMIT :limit")
+    suspend fun getExpensesPaginated(beforeDate: Long, limit: Int): List<ExpenseEntity>
+
+    // 首页不限制月份，加载所有记录
+    @Query("SELECT * FROM expenses ORDER BY date DESC")
+    fun getAllExpensesSortedByDate(): Flow<List<ExpenseEntity>>
+
     @Query("SELECT * FROM expenses WHERE categoryId = :categoryId ORDER BY date DESC")
     fun getExpensesByCategory(categoryId: Long): Flow<List<ExpenseEntity>>
 

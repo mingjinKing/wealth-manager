@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -40,11 +42,13 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -115,7 +119,24 @@ fun DashboardScreen(
         floatingActionButtonPosition = FabPosition.Center,
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
+        val listState = rememberLazyListState()
+
+        // 滚动到底部时触发加载更多
+        LaunchedEffect(listState) {
+            snapshotFlow {
+                val layoutInfo = listState.layoutInfo
+                val totalItems = layoutInfo.totalItemsCount
+                val lastVisibleItem = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                lastVisibleItem >= totalItems - 3  // 距底部3项时触发
+            }.collect { shouldLoadMore ->
+                if (shouldLoadMore) {
+                    viewModel.loadMoreExpenses()
+                }
+            }
+        }
+
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
@@ -140,7 +161,7 @@ fun DashboardScreen(
             }
 
             // 每日收支明细
-            if (state.dailyExpenses.isEmpty()) {
+            if (state.dailyExpenses.isEmpty() && !state.isLoading) {
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -172,13 +193,31 @@ fun DashboardScreen(
                 }
             } else {
                 state.dailyExpenses.forEach { daily ->
-                    item {
+                    item(key = daily.dateMillis) {
                         DailyExpenseCard(
                             dailyExpense = daily,
                             onExpenseClick = { expenseItem ->
                                 selectedExpense = expenseItem
                                 showBottomSheet = true
                             }
+                        )
+                    }
+                }
+            }
+
+            // 加载更多指示器
+            if (state.isLoadingMore) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp,
+                            color = Primary
                         )
                     }
                 }

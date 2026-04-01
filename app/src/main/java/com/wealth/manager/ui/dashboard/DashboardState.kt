@@ -5,6 +5,8 @@ import com.wealth.manager.data.entity.ExpenseEntity
 
 data class DashboardState(
     val isLoading: Boolean = true,
+    val isLoadingMore: Boolean = false,
+    val hasMorePages: Boolean = true,
     val monthTotal: Double = 0.0,
     val recent7DaysTotal: Double = 0.0,
     val dailyExpenses: List<DailyExpense> = emptyList(),

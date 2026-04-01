@@ -7,15 +7,18 @@ import com.wealth.manager.data.dao.ExpenseDao
 import com.wealth.manager.data.dao.WeekStatsDao
 import com.wealth.manager.data.entity.ExpenseEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import javax.inject.Inject
+
+private const val PAGE_SIZE = 30  // 每次加载约5-6天记录
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
@@ -26,6 +29,9 @@ class DashboardViewModel @Inject constructor(
 
     private val _state = MutableStateFlow(DashboardState())
     val state: StateFlow<DashboardState> = _state.asStateFlow()
+
+    private var allExpensesPage = mutableListOf<ExpenseEntity>()
+    private var lastLoadedDate: Long = Long.MAX_VALUE
 
     init {
         loadDashboardData()
@@ -40,61 +46,90 @@ class DashboardViewModel @Inject constructor(
     fun loadDashboardData() {
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true)
+            allExpensesPage.clear()
+            lastLoadedDate = Long.MAX_VALUE
 
-            val (monthStart, monthEnd) = getCurrentMonthRange()
-            val (sevenDaysStart, sevenDaysEnd) = getLast7DaysRange()
+            // 并行加载：本月汇总 + 首页分页数据
+            val monthStart = getCurrentMonthRange().first
+            val (recent7DaysStart, recent7DaysEnd) = getLast7DaysRange()
 
-            combine(
-                expenseDao.getExpensesByDateRange(monthStart, monthEnd),
-                expenseDao.getExpensesByDateRange(sevenDaysStart, sevenDaysEnd),
-                categoryDao.getAllCategories(),
-                weekStatsDao.getRecentWeekStats(4)
-            ) { monthExpenses, recent7DaysExpenses, categories, recentStats ->
-                calculateDashboardState(
-                    monthExpenses,
-                    recent7DaysExpenses,
-                    categories,
-                    recentStats
-                )
-            }.collect { newState ->
-                _state.value = newState
+            val categoriesDeferred = async { categoryDao.getAllCategories().first }
+            val weekStatsDeferred = async { weekStatsDao.getRecentWeekStats(4) }
+            val monthExpensesDeferred = async { expenseDao.getExpensesByDateRange(monthStart, System.currentTimeMillis()).first }
+            val recent7DaysDeferred = async { expenseDao.getExpensesByDateRange(recent7DaysStart, recent7DaysEnd).first }
+
+            // 加载首页所有记录（按日期倒序）
+            val firstPage = expenseDao.getExpensesPaginated(Long.MAX_VALUE, PAGE_SIZE)
+            allExpensesPage = firstPage.toMutableList()
+            if (firstPage.isNotEmpty()) {
+                lastLoadedDate = firstPage.last().date
             }
+
+            val categories = categoriesDeferred.await()
+            val recentStats = weekStatsDeferred.await()
+            val monthExpenses = monthExpensesDeferred.await()
+            val recent7DaysExpenses = recent7DaysDeferred.await()
+
+            val dailyExpenses = groupExpensesByDay(allExpensesPage, categories)
+            val monthTotal = monthExpenses.sumOf { it.amount }
+            val recent7DaysTotal = recent7DaysExpenses.sumOf { it.amount }
+
+            val avgLast4Weeks = recentStats.take(4).map { it.totalAmount }.average()
+                .takeIf { !it.isNaN() } ?: recent7DaysTotal
+            val savedAmount = avgLast4Weeks - recent7DaysTotal
+            val isTriggered = savedAmount > 100 && savedAmount > avgLast4Weeks * 0.2
+            val wowPreview = if (isTriggered) {
+                WowPreview(
+                    savedAmount = savedAmount,
+                    isTriggered = true,
+                    reason = "本周消费控制良好"
+                )
+            } else null
+
+            _state.value = DashboardState(
+                isLoading = false,
+                isLoadingMore = false,
+                hasMorePages = firstPage.size >= PAGE_SIZE,
+                monthTotal = monthTotal,
+                recent7DaysTotal = recent7DaysTotal,
+                dailyExpenses = dailyExpenses,
+                wowPreview = wowPreview,
+                categories = categories
+            )
         }
     }
 
-    private fun calculateDashboardState(
-        monthExpenses: List<ExpenseEntity>,
-        recent7DaysExpenses: List<ExpenseEntity>,
-        categories: List<com.wealth.manager.data.entity.CategoryEntity>,
-        recentStats: List<com.wealth.manager.data.entity.WeekStatsEntity>
-    ): DashboardState {
-        val monthTotal = monthExpenses.sumOf { it.amount }
-        val recent7DaysTotal = recent7DaysExpenses.sumOf { it.amount }
+    fun loadMoreExpenses() {
+        val currentState = _state.value
+        if (currentState.isLoadingMore || !currentState.hasMorePages) return
 
-        // Group expenses by day (only show days with expenses)
-        val dailyExpenses = groupExpensesByDay(monthExpenses, categories)
+        viewModelScope.launch {
+            _state.value = currentState.copy(isLoadingMore = true)
 
-        // Wow calculation based on 4-week average
-        val avgLast4Weeks = recentStats.take(4).map { it.totalAmount }.average()
-            .takeIf { !it.isNaN() } ?: recent7DaysTotal
-        val savedAmount = avgLast4Weeks - recent7DaysTotal
-        val isTriggered = savedAmount > 100 && savedAmount > avgLast4Weeks * 0.2
-        val wowPreview = if (isTriggered) {
-            WowPreview(
-                savedAmount = savedAmount,
-                isTriggered = true,
-                reason = "本周消费控制良好"
+            val categories = _state.value.categories.ifEmpty {
+                categoryDao.getAllCategories().first
+            }
+
+            val nextPage = expenseDao.getExpensesPaginated(lastLoadedDate, PAGE_SIZE)
+            if (nextPage.isEmpty()) {
+                _state.value = _state.value.copy(
+                    isLoadingMore = false,
+                    hasMorePages = false
+                )
+                return@launch
+            }
+
+            allExpensesPage.addAll(nextPage)
+            lastLoadedDate = nextPage.last().date
+
+            val dailyExpenses = groupExpensesByDay(allExpensesPage, categories)
+
+            _state.value = _state.value.copy(
+                isLoadingMore = false,
+                hasMorePages = nextPage.size >= PAGE_SIZE,
+                dailyExpenses = dailyExpenses
             )
-        } else null
-
-        return DashboardState(
-            isLoading = false,
-            monthTotal = monthTotal,
-            recent7DaysTotal = recent7DaysTotal,
-            dailyExpenses = dailyExpenses,
-            wowPreview = wowPreview,
-            categories = categories
-        )
+        }
     }
 
     private fun groupExpensesByDay(
@@ -156,14 +191,7 @@ class DashboardViewModel @Inject constructor(
         cal.set(Calendar.SECOND, 0)
         cal.set(Calendar.MILLISECOND, 0)
         val monthStart = cal.timeInMillis
-
-        cal.set(Calendar.DAY_OF_MONTH, cal.getActualMaximum(Calendar.DAY_OF_MONTH))
-        cal.set(Calendar.HOUR_OF_DAY, 23)
-        cal.set(Calendar.MINUTE, 59)
-        cal.set(Calendar.SECOND, 59)
-        val monthEnd = cal.timeInMillis
-
-        return Pair(monthStart, monthEnd)
+        return Pair(monthStart, System.currentTimeMillis())
     }
 
     private fun getLast7DaysRange(): Pair<Long, Long> {
@@ -172,7 +200,7 @@ class DashboardViewModel @Inject constructor(
         cal.set(Calendar.MINUTE, 0)
         cal.set(Calendar.SECOND, 0)
         cal.set(Calendar.MILLISECOND, 0)
-        cal.add(Calendar.DAY_OF_YEAR, -6)  // Last 7 days including today
+        cal.add(Calendar.DAY_OF_YEAR, -6)
         val sevenDaysStart = cal.timeInMillis
 
         cal.add(Calendar.DAY_OF_YEAR, 6)
