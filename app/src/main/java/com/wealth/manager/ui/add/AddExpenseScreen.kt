@@ -1,7 +1,9 @@
 package com.wealth.manager.ui.add
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,11 +14,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Backspace
@@ -154,11 +159,18 @@ fun AddExpenseScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
+        val focusManager = LocalFocusManager.current
+        val isImeVisible = WindowInsets.isImeVisible
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(horizontal = 16.dp)
+                .pointerInput(Unit) {
+                    detectTapGestures(onTap = { focusManager.clearFocus() })
+                }
+                .imePadding()
         ) {
             // 顶部：类别 Chips（填满剩余空间，键盘出现时自动压缩）
             LazyColumn(
@@ -249,12 +261,11 @@ fun AddExpenseScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // 数字键盘（imePadding保护不被键盘遮挡）
-                Column(
-                    modifier = Modifier
-                        .imePadding()
-                        .navigationBarsPadding()
-                ) {
+                // 系统键盘出现时隐藏自定义数字键盘
+                AnimatedVisibility(visible = !isImeVisible) {
+                    Column(
+                        modifier = Modifier.navigationBarsPadding()
+                    ) {
                     NumericKeypadWithSign(
                         onNumberClick = { digit ->
                             amount = if (amount == "0") digit else amount + digit
@@ -280,6 +291,7 @@ fun AddExpenseScreen(
                             }
                         }
                     )
+                }
                 }
             }
         }
