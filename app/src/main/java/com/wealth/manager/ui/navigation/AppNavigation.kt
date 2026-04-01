@@ -212,29 +212,25 @@ fun AppNavigation() {
                 androidx.compose.foundation.layout.Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp)
                         .background(Background)
                         .navigationBarsPadding()
-                        .padding(horizontal = 8.dp)
                 ) {
-                    androidx.compose.foundation.layout.Row(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
                         bottomNavItems.forEach { item ->
                             val selected = currentDestination?.hierarchy?.any { it.route == item.route } == true
-                            androidx.compose.foundation.layout.Column(
+                            Column(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .fillMaxSize()
                                     .clickable {
                                         navController.navigate(item.route) {
                                             launchSingleTop = true
                                         }
-                                    },
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
+                                    }
+                                    .padding(vertical = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Icon(
                                     imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
