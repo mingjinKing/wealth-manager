@@ -49,16 +49,16 @@ class DashboardViewModel @Inject constructor(
             allExpensesPage.clear()
             lastLoadedDate = Long.MAX_VALUE
 
-            // 并行加载：本月汇总 + 首页分页数据
             val monthStart = getCurrentMonthRange().first
             val (recent7DaysStart, recent7DaysEnd) = getLast7DaysRange()
 
-            val categoriesDeferred = async { categoryDao.getAllCategories().first }
-            val weekStatsDeferred = async { weekStatsDao.getRecentWeekStats(4) }
-            val monthExpensesDeferred = async { expenseDao.getExpensesByDateRange(monthStart, System.currentTimeMillis()).first }
-            val recent7DaysDeferred = async { expenseDao.getExpensesByDateRange(recent7DaysStart, recent7DaysEnd).first }
+            // 并行加载所有数据（Flow → List）
+            val categoriesDeferred = async { categoryDao.getAllCategories().first() }
+            val weekStatsDeferred = async { weekStatsDao.getRecentWeekStats(4).first() }
+            val monthExpensesDeferred = async { expenseDao.getExpensesByDateRange(monthStart, System.currentTimeMillis()).first() }
+            val recent7DaysDeferred = async { expenseDao.getExpensesByDateRange(recent7DaysStart, recent7DaysEnd).first() }
 
-            // 加载首页所有记录（按日期倒序）
+            // 加载首页第一页
             val firstPage = expenseDao.getExpensesPaginated(Long.MAX_VALUE, PAGE_SIZE)
             allExpensesPage = firstPage.toMutableList()
             if (firstPage.isNotEmpty()) {
@@ -107,7 +107,7 @@ class DashboardViewModel @Inject constructor(
             _state.value = currentState.copy(isLoadingMore = true)
 
             val categories = _state.value.categories.ifEmpty {
-                categoryDao.getAllCategories().first
+                categoryDao.getAllCategories().first()
             }
 
             val nextPage = expenseDao.getExpensesPaginated(lastLoadedDate, PAGE_SIZE)
