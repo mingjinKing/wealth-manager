@@ -1,5 +1,6 @@
 package com.wealth.manager.ui.add
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -7,19 +8,21 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Backspace
@@ -44,16 +47,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -61,7 +61,6 @@ import com.wealth.manager.ui.theme.Primary
 import com.wealth.manager.ui.theme.Surface
 import com.wealth.manager.ui.theme.TextSecondary
 import java.util.Calendar
-import kotlin.math.max
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -120,28 +119,6 @@ fun AddExpenseScreen(
 
     val isEditMode = expenseToEdit != null
 
-    // 焦点管理 + 密度（用于动态 Insets 计算）
-    val focusManager = LocalFocusManager.current
-    val density = LocalDensity.current
-
-    // 数字键盘高度：4行*56dp + 3个间隙*8dp = 248dp，上方间距12dp
-    val customKeypadHeightWithSpacing = 260.dp
-
-    // 核心：动态底部避让 Insets，取系统键盘高度 与 (导航栏+数字键盘) 高度的最大值
-    val dynamicBottomInsets = remember(density) {
-        object : WindowInsets {
-            override fun getBottom(density: Density): Int {
-                val imeHeight = WindowInsets.ime.getBottom(density)
-                val navBarHeight = WindowInsets.navigationBars.getBottom(density)
-                val keypadHeight = with(density) { customKeypadHeightWithSpacing.roundToPx() }
-                return max(imeHeight, navBarHeight + keypadHeight)
-            }
-            override fun getLeft(density: Density, layoutDirection: LayoutDirection) = 0
-            override fun getTop(density: Density) = 0
-            override fun getRight(density: Density, layoutDirection: LayoutDirection) = 0
-        }
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -162,6 +139,7 @@ fun AddExpenseScreen(
                     }
                 },
                 actions = {
+                    // 可点击的日期按钮
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
@@ -183,100 +161,64 @@ fun AddExpenseScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
-        // Z轴分层：底层键盘固定，上层动态避让
-        Box(
+        val focusManager = LocalFocusManager.current
+        val isImeVisible = WindowInsets.isImeVisible
+
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = paddingValues.calculateTopPadding())
+                .padding(paddingValues)
+                .padding(horizontal = 16.dp)
                 .pointerInput(Unit) {
                     detectTapGestures(onTap = { focusManager.clearFocus() })
                 }
+                .imePadding()
         ) {
-            // 【底层】：自定义数字键盘，永远固定在底部
-            // 系统键盘弹出时像"拉帘"一样直接盖在上面
-            Box(
+            // 顶部：类别 Chips（填满剩余空间，键盘出现时自动压缩）
+            LazyColumn(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .navigationBarsPadding()
+                    .weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                NumericKeypadWithSign(
-                    onNumberClick = { digit ->
-                        amount = if (amount == "0") digit else amount + digit
-                    },
-                    onDecimalClick = {
-                        if (!amount.contains(".")) amount += "."
-                    },
-                    onPlusClick = { },
-                    onMinusClick = { },
-                    onDeleteClick = {
-                        amount = if (amount.length > 1) amount.dropLast(1) else "0"
-                    },
-                    onConfirmClick = {
-                        val finalAmount = amount.toDoubleOrNull() ?: 0.0
-                        if (finalAmount > 0 && selectedCategoryId != null) {
-                            if (isEditMode && expenseToEdit != null) {
-                                viewModel.updateExpense(expenseToEdit, finalAmount, selectedCategoryId!!, note)
-                                onNavigateBack()
-                            } else {
-                                viewModel.addExpense(finalAmount, selectedCategoryId!!, note, selectedDateMillis)
-                                onNavigateToDashboard()
-                            }
-                        }
-                    }
-                )
-            }
-
-            // 【上层】：类别列表 + 备注/金额，用动态 Insets 智能避让
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp)
-                    .windowInsetsPadding(dynamicBottomInsets)
-            ) {
-                // 顶部：类别 Chips（填满剩余空间）
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    item {
-                        FlowRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            categories.forEach { category ->
-                                val isSelected = selectedCategoryId == category.id
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(20.dp))
-                                        .background(if (isSelected) Primary else Surface)
-                                        .clickable { selectedCategoryId = category.id }
-                                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                item {
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        categories.forEach { category ->
+                            val isSelected = selectedCategoryId == category.id
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(if (isSelected) Primary else Surface)
+                                    .clickable { selectedCategoryId = category.id }
+                                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                    ) {
-                                        Text(text = category.icon, style = MaterialTheme.typography.bodyMedium)
-                                        Text(
-                                            text = category.name,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary
-                                                    else MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
+                                    Text(text = category.icon, style = MaterialTheme.typography.bodyMedium)
+                                    Text(
+                                        text = category.name,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                                                else MaterialTheme.colorScheme.onSurface
+                                    )
                                 }
                             }
                         }
-                        Spacer(modifier = Modifier.height(16.dp))
                     }
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
+            }
 
-                // 音符 + 金额 并排一行
+            // 音符 + 金额 并排一行 + 键盘（固定在底部）
+            Column(
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -318,7 +260,65 @@ fun AddExpenseScreen(
                         textAlign = TextAlign.End
                     )
                 }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // 系统键盘出现时隐藏自定义数字键盘
+                AnimatedVisibility(visible = !isImeVisible) {
+                    Column(
+                        modifier = Modifier.navigationBarsPadding()
+                    ) {
+                    NumericKeypadWithSign(
+                        onNumberClick = { digit ->
+                            amount = if (amount == "0") digit else amount + digit
+                        },
+                        onDecimalClick = {
+                            if (!amount.contains(".")) amount += "."
+                        },
+                        onPlusClick = { },
+                        onMinusClick = { },
+                        onDeleteClick = {
+                            amount = if (amount.length > 1) amount.dropLast(1) else "0"
+                        },
+                        onConfirmClick = {
+                            val finalAmount = amount.toDoubleOrNull() ?: 0.0
+                            if (finalAmount > 0 && selectedCategoryId != null) {
+                                if (isEditMode && expenseToEdit != null) {
+                                    viewModel.updateExpense(expenseToEdit, finalAmount, selectedCategoryId!!, note)
+                                    onNavigateBack()
+                                } else {
+                                    viewModel.addExpense(finalAmount, selectedCategoryId!!, note, selectedDateMillis)
+                                    onNavigateToDashboard()
+                                }
+                            }
+                        }
+                    )
+                }
+                }
             }
+        }
+
+        // 日期选择弹窗（使用Android原生DatePicker，支持中文月份）
+        if (showDatePicker) {
+            val calendar = Calendar.getInstance().apply { timeInMillis = selectedDateMillis }
+            val listener = android.app.DatePickerDialog.OnDateSetListener { _, year, month, dayOfMonth ->
+                val cal = Calendar.getInstance().apply {
+                    set(year, month, dayOfMonth, 0, 0, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                selectedDateMillis = cal.timeInMillis
+                showDatePicker = false
+            }
+            val dialog = android.app.DatePickerDialog(
+                LocalContext.current,
+                listener,
+                calendar.get(Calendar.YEAR),
+                calendar.get(Calendar.MONTH),
+                calendar.get(Calendar.DAY_OF_MONTH)
+            )
+            dialog.setOnDismissListener { showDatePicker = false }
+            dialog.show()
+            showDatePicker = false  // prevent recomposition
         }
     }
 }
@@ -371,8 +371,12 @@ private fun NumericKeypadWithSign(
             KeypadButton("7", Modifier.weight(1f)) { onNumberClick("7") }
             KeypadButton("8", Modifier.weight(1f)) { onNumberClick("8") }
             KeypadButton("9", Modifier.weight(1f)) { onNumberClick("9") }
+            KeypadButton("·", Modifier.weight(1f), isSpecial = true) { onDecimalClick() }
+            KeypadButton("00", Modifier.weight(1f), isSpecial = true) { onNumberClick("00") }
+        }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             KeypadButton("0", Modifier.weight(1f)) { onNumberClick("0") }
-            KeypadButton(".", Modifier.weight(1f)) { onDecimalClick() }
+            Spacer(modifier = Modifier.weight(4f))
         }
     }
 }
@@ -381,6 +385,7 @@ private fun NumericKeypadWithSign(
 private fun KeypadButton(
     text: String,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     isSpecial: Boolean = false,
     isPrimary: Boolean = false,
     onClick: () -> Unit
@@ -388,25 +393,38 @@ private fun KeypadButton(
     Box(
         modifier = modifier
             .height(56.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(8.dp))
             .background(
                 when {
                     isPrimary -> Primary
-                    isSpecial -> Surface
                     else -> Surface
                 }
             )
-            .clickable(onClick = onClick),
+            .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.headlineSmall,
-            color = when {
-                isPrimary -> MaterialTheme.colorScheme.onPrimary
-                isSpecial -> MaterialTheme.colorScheme.onSurface
-                else -> MaterialTheme.colorScheme.onSurface
-            }
-        )
+        when (text) {
+            "⌫" -> Icon(
+                imageVector = Icons.AutoMirrored.Filled.Backspace,
+                contentDescription = "删除",
+                tint = if (enabled) TextSecondary else TextSecondary.copy(alpha = 0.3f)
+            )
+            "✓" -> Icon(
+                imageVector = Icons.Default.Check,
+                contentDescription = "确认",
+                tint = MaterialTheme.colorScheme.onPrimary
+            )
+            else -> Text(
+                text = text,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Medium,
+                color = when {
+                    !enabled -> TextSecondary.copy(alpha = 0.3f)
+                    isPrimary || isSpecial -> MaterialTheme.colorScheme.onPrimary
+                    else -> MaterialTheme.colorScheme.onSurface
+                },
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
