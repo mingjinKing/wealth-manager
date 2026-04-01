@@ -171,7 +171,7 @@ fun AddExpenseScreen(
         // adjustNothing + 动态 bottomPadding
         // 键盘高度通过 WindowInsets.ime.getBottom() 获取，Card 动态调整底部padding避免被覆盖
         val imePadding = WindowInsets.ime.asPaddingValues()
-        val bottomPad = (imePadding.calculateBottomPadding() + 180.dp).coerceAtLeast(16.dp)
+        val bottomPad = (imePadding.calculateBottomPadding() + 180.dp + 80.dp).coerceAtLeast(16.dp)
 
         Box(
             modifier = Modifier
