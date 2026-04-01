@@ -1,8 +1,10 @@
 package com.wealth.manager.ui.add
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -32,6 +35,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -56,13 +60,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.wealth.manager.data.entity.CategoryEntity
 import com.wealth.manager.ui.theme.Background
 import com.wealth.manager.ui.theme.Primary
 import com.wealth.manager.ui.theme.Surface
 import com.wealth.manager.ui.theme.TextSecondary
 import java.util.Calendar
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun AddExpenseScreen(
     expenseToEdit: Long? = null,
@@ -78,6 +83,9 @@ fun AddExpenseScreen(
     var selectedCategoryId by remember { mutableStateOf<Long?>(null) }
     var selectedDateMillis by remember { mutableLongStateOf(getTodayStartMillis()) }
     var showDatePicker by remember { mutableStateOf(false) }
+
+    // 删除分类相关状态
+    var categoryToDelete by remember { mutableStateOf<CategoryEntity?>(null) }
 
     // 计算器逻辑状态
     var pendingValue by remember { mutableStateOf<Double?>(null) }
@@ -107,6 +115,33 @@ fun AddExpenseScreen(
         dialog.setOnDismissListener { showDatePicker = false }
         dialog.show()
         showDatePicker = false
+    }
+
+    // 删除分类确认弹窗
+    categoryToDelete?.let { category ->
+        AlertDialog(
+            onDismissRequest = { categoryToDelete = null },
+            title = { Text("删除分类") },
+            text = { Text("确定要删除分类 \"${category.name}\" 吗？") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteCategory(category.id)
+                        if (selectedCategoryId == category.id) {
+                            selectedCategoryId = null
+                        }
+                        categoryToDelete = null
+                    }
+                ) {
+                    Text("确定", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { categoryToDelete = null }) {
+                    Text("取消")
+                }
+            }
+        )
     }
 
     LaunchedEffect(expenseToEdit) {
@@ -232,7 +267,10 @@ fun AddExpenseScreen(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(20.dp))
                                         .background(if (isSelected) Primary else Surface)
-                                        .clickable { selectedCategoryId = category.id }
+                                        .combinedClickable(
+                                            onClick = { selectedCategoryId = category.id },
+                                            onLongClick = { categoryToDelete = category }
+                                        )
                                         .padding(horizontal = 12.dp, vertical = 8.dp)
                                 ) {
                                     Row(

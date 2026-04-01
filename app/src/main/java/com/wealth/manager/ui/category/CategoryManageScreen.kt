@@ -108,22 +108,23 @@ fun CategoryManageScreen(
             item { Spacer(modifier = Modifier.height(8.dp)) }
 
             // 默认分类分组
-            item {
-                Text(
-                    text = "默认分类",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = TextSecondary,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-            }
-            items(state.defaultCategories) { category ->
-                CategoryItem(
-                    name = category.name,
-                    emoji = category.icon,
-                    color = Color(android.graphics.Color.parseColor(category.color)),
-                    isDefault = true,
-                    onDelete = { }
-                )
+            if (state.defaultCategories.isNotEmpty()) {
+                item {
+                    Text(
+                        text = "默认分类",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = TextSecondary,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                }
+                items(state.defaultCategories) { category ->
+                    CategoryItem(
+                        name = category.name,
+                        emoji = category.icon,
+                        color = Color(android.graphics.Color.parseColor(category.color)),
+                        onDelete = { viewModel.deleteCategory(category.id) }
+                    )
+                }
             }
 
             item { Spacer(modifier = Modifier.height(16.dp)) }
@@ -143,7 +144,6 @@ fun CategoryManageScreen(
                         name = category.name,
                         emoji = category.icon,
                         color = Color(android.graphics.Color.parseColor(category.color)),
-                        isDefault = false,
                         onDelete = { viewModel.deleteCategory(category.id) }
                     )
                 }
@@ -224,7 +224,6 @@ private fun CategoryItem(
     name: String,
     emoji: String,
     color: Color,
-    isDefault: Boolean,
     onDelete: () -> Unit
 ) {
     Card(
@@ -237,32 +236,35 @@ private fun CategoryItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(color.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(text = emoji, style = MaterialTheme.typography.bodyMedium)
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = name,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.weight(1f)
-            )
-            if (!isDefault) {
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "删除",
-                        tint = TextSecondary
-                    )
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(color.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = emoji, style = MaterialTheme.typography.bodyMedium)
                 }
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            IconButton(onClick = onDelete) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "删除",
+                    tint = TextSecondary.copy(alpha = 0.6f)
+                )
             }
         }
     }

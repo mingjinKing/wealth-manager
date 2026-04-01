@@ -87,6 +87,12 @@ class AddExpenseViewModel @Inject constructor(
         }
     }
 
+    fun deleteCategory(id: Long) {
+        viewModelScope.launch {
+            categoryDao.deleteCategoryById(id)
+        }
+    }
+
     private fun getTodayStartMillis(): Long {
         val cal = Calendar.getInstance()
         cal.set(Calendar.HOUR_OF_DAY, 0)
