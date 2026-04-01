@@ -171,7 +171,7 @@ fun AddExpenseScreen(
         // adjustNothing + 动态 bottomPadding
         // 键盘高度通过 WindowInsets.ime.getBottom() 获取，Card 动态调整底部padding避免被覆盖
         val imePadding = WindowInsets.ime.asPaddingValues()
-        val bottomPad = (imePadding.calculateBottomPadding() + 180.dp + 40.dp).coerceAtLeast(16.dp)
+        val bottomPad = (imePadding.calculateBottomPadding() + 180.dp).coerceAtLeast(16.dp)
 
         Box(
             modifier = Modifier
@@ -364,23 +364,23 @@ private fun NumericKeypadWithSign(
     onDeleteClick: () -> Unit,
     onConfirmClick: () -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         // 第1行：7 8 9 ⌫
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             KeypadButton("7", Modifier.weight(1f)) { onNumberClick("7") }
             KeypadButton("8", Modifier.weight(1f)) { onNumberClick("8") }
             KeypadButton("9", Modifier.weight(1f)) { onNumberClick("9") }
             KeypadButton("⌫", Modifier.weight(1f), isSpecial = true) { onDeleteClick() }
         }
         // 第2行：4 5 6 ✓
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             KeypadButton("4", Modifier.weight(1f)) { onNumberClick("4") }
             KeypadButton("5", Modifier.weight(1f)) { onNumberClick("5") }
             KeypadButton("6", Modifier.weight(1f)) { onNumberClick("6") }
             KeypadButton("✓", Modifier.weight(1f), isPrimary = true) { onConfirmClick() }
         }
         // 第3行：1 2 3 + −
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             KeypadButton("1", Modifier.weight(1f)) { onNumberClick("1") }
             KeypadButton("2", Modifier.weight(1f)) { onNumberClick("2") }
             KeypadButton("3", Modifier.weight(1f)) { onNumberClick("3") }
@@ -388,7 +388,7 @@ private fun NumericKeypadWithSign(
             KeypadButton("−", Modifier.weight(1f), isSpecial = true) { onMinusClick() }
         }
         // 第4行：小数点 0（双宽）
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             KeypadButton("·", Modifier.weight(1f), isSpecial = true) { onDecimalClick() }
             KeypadButton("0", Modifier.weight(3f)) { onNumberClick("0") }
         }
