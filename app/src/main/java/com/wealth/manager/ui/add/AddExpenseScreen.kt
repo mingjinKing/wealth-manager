@@ -185,13 +185,13 @@ fun AddExpenseScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 16.dp)
             ) {
                 // 顶部：类别 Chips（填满剩余空间）
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f),
+                        .weight(1f)
+                        .padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     item {
@@ -232,11 +232,11 @@ fun AddExpenseScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Surface),
+                    colors = CardDefaults.cardColors(containerColor = Background),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Column(
-                        modifier = Modifier.padding(12.dp)
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
                         // 第一行：备注 + 金额
                         Row(
