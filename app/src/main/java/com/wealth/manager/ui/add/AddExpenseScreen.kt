@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -76,6 +77,9 @@ fun AddExpenseScreen(
     var selectedCategoryId by remember { mutableStateOf<Long?>(null) }
     var selectedDateMillis by remember { mutableLongStateOf(getTodayStartMillis()) }
     var showDatePicker by remember { mutableStateOf(false) }
+
+    // 拦截系统滑动返回，确保滑动和按返回键行为一致
+    BackHandler { onNavigateBack() }
 
     // 日期选择弹窗
     if (showDatePicker) {
