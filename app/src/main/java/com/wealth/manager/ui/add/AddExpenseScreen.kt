@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -49,6 +50,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -166,12 +168,17 @@ fun AddExpenseScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
-        // Z轴分层：底层放数字键盘（永远固定），上层放类别+输入框（固定260dp底部留空）
+        // 动态计算系统键盘高度
+        // 键盘按键(4*56=224) + 按键间距(3*8=24) + Card底部padding(12) + 分隔线及Spacer(4+0.5+4=8.5) = 268.5dp
+        val contentHeightBelowNote = 268.5.dp
+        val imeHeight = WindowInsets.ime.getBottom(LocalDensity.current).toDp().coerceAtLeast(0.dp)
+        val extraBottomPadding = if (imeHeight > contentHeightBelowNote) imeHeight - contentHeightBelowNote else 0.dp
+
+        // Z轴分层：底层放数字键盘（永远固定），上层放类别+输入框
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = paddingValues.calculateTopPadding())
-                .imePadding()
                 .pointerInput(Unit) {
                     detectTapGestures(onTap = { focusManager.clearFocus() })
                 }
@@ -328,8 +335,8 @@ fun AddExpenseScreen(
                     }
                 }
 
-                // 底部留空（卡片本身在底层Box中会被系统键盘覆盖）
-                Spacer(modifier = Modifier.height(16.dp))
+                // 底部留空（系统键盘超过268.5dp时动态补偿）
+                Spacer(modifier = Modifier.height(16.dp + extraBottomPadding))
             }
         }
     }
