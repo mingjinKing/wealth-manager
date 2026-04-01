@@ -37,14 +37,14 @@ class AddExpenseViewModel @Inject constructor(
             val count = categoryDao.getCategoryCount()
             if (count == 0) {
                 val defaultCategories = listOf(
-                    CategoryEntity(name = "餐饮", icon = "\uD83C\uDF57", color = "#ffc880"),
-                    CategoryEntity(name = "购物", icon = "\uD83D\uDECD", color = "#4A90D9"),
-                    CategoryEntity(name = "交通", icon = "\uD83D\uDE8C", color = "#E55B5B"),
-                    CategoryEntity(name = "娱乐", icon = "\uD83C\uDFAE", color = "#9C27B0"),
-                    CategoryEntity(name = "居住", icon = "\uD83C\uDFE0", color = "#4CAF50"),
-                    CategoryEntity(name = "医疗", icon = "\uD83C\uDFE5", color = "#F44336"),
-                    CategoryEntity(name = "学习", icon = "\uD83D\uDCDA", color = "#2196F3"),
-                    CategoryEntity(name = "其他", icon = "\uD83D\uDCCB", color = "#9E9E9E")
+                    CategoryEntity(name = "餐饮", icon = "🍗", color = "#ffc880"),
+                    CategoryEntity(name = "购物", icon = "🛍️", color = "#4A90D9"),
+                    CategoryEntity(name = "交通", icon = "🚌", color = "#E55B5B"),
+                    CategoryEntity(name = "娱乐", icon = "🎮", color = "#9C27B0"),
+                    CategoryEntity(name = "居住", icon = "🏠", color = "#4CAF50"),
+                    CategoryEntity(name = "医疗", icon = "🏥", color = "#F44336"),
+                    CategoryEntity(name = "学习", icon = "📚", color = "#2196F3"),
+                    CategoryEntity(name = "其他", icon = "📋", color = "#9E9E9E")
                 )
                 categoryDao.insertCategories(defaultCategories)
             }
@@ -57,7 +57,7 @@ class AddExpenseViewModel @Inject constructor(
         }
     }
 
-    fun addExpense(amount: Double, categoryId: Long, note: String = "", dateMillis: Long = getTodayStartMillis()) {
+    fun addExpense(amount: Double, categoryId: Long, note: String = "", dateMillis: Long = getTodayStartMillis(), onComplete: () -> Unit = {}) {
         viewModelScope.launch {
             val expense = ExpenseEntity(
                 amount = amount,
@@ -66,24 +66,28 @@ class AddExpenseViewModel @Inject constructor(
                 note = note
             )
             expenseDao.insertExpense(expense)
+            onComplete()
         }
     }
 
-    fun updateExpense(id: Long, amount: Double, categoryId: Long, note: String) {
+    fun updateExpense(id: Long, amount: Double, categoryId: Long, note: String, dateMillis: Long, onComplete: () -> Unit = {}) {
         viewModelScope.launch {
             val existing = expenseDao.getExpenseById(id) ?: return@launch
             val updated = existing.copy(
                 amount = amount,
                 categoryId = categoryId,
-                note = note
+                note = note,
+                date = dateMillis
             )
             expenseDao.updateExpense(updated)
+            onComplete()
         }
     }
 
-    fun deleteExpense(id: Long) {
+    fun deleteExpense(id: Long, onComplete: () -> Unit = {}) {
         viewModelScope.launch {
             expenseDao.deleteExpenseById(id)
+            onComplete()
         }
     }
 

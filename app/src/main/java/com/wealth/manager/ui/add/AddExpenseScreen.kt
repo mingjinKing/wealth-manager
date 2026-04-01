@@ -198,7 +198,7 @@ fun AddExpenseScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = if (isEditMode) "修改账单" else "添加账单",
+                        text = if (isEditMode) "修改" else "添加账单",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Medium
                     )
@@ -394,11 +394,13 @@ fun AddExpenseScreen(
                                 val finalAmount = amount.toDoubleOrNull() ?: 0.0
                                 if (finalAmount > 0 && selectedCategoryId != null) {
                                     if (isEditMode && expenseToEdit != null) {
-                                        viewModel.updateExpense(expenseToEdit, finalAmount, selectedCategoryId!!, note)
-                                        onNavigateBack()
+                                        viewModel.updateExpense(expenseToEdit, finalAmount, selectedCategoryId!!, note, selectedDateMillis) {
+                                            onNavigateBack()
+                                        }
                                     } else {
-                                        viewModel.addExpense(finalAmount, selectedCategoryId!!, note, selectedDateMillis)
-                                        onNavigateToDashboard()
+                                        viewModel.addExpense(finalAmount, selectedCategoryId!!, note, selectedDateMillis) {
+                                            onNavigateToDashboard()
+                                        }
                                     }
                                 }
                             }

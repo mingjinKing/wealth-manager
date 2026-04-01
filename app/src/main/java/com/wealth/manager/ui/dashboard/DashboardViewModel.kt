@@ -40,15 +40,20 @@ class DashboardViewModel @Inject constructor(
     fun deleteExpense(id: Long) {
         viewModelScope.launch {
             expenseDao.deleteExpenseById(id)
+            loadDashboardData(showLoading = false) // Refresh after delete
         }
     }
 
-    fun loadDashboardData() {
+    fun loadDashboardData(showLoading: Boolean = true) {
         viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true)
-            allExpensesPage.clear()
-            lastLoadedDate = Long.MAX_VALUE
-
+            if (showLoading) {
+                _state.value = _state.value.copy(isLoading = true)
+            }
+            
+            // Note: Keep allExpensesPage and lastLoadedDate updated correctly
+            // When refreshing, we usually want to reload the first page or everything already loaded.
+            // To keep it simple and consistent with pagination, we reload the first page.
+            
             val monthStart = getCurrentMonthRange().first
             val (recent7DaysStart, recent7DaysEnd) = getLast7DaysRange()
 
@@ -58,11 +63,13 @@ class DashboardViewModel @Inject constructor(
             val monthExpensesDeferred = async { expenseDao.getExpensesByDateRange(monthStart, System.currentTimeMillis()).first() }
             val recent7DaysDeferred = async { expenseDao.getExpensesByDateRange(recent7DaysStart, recent7DaysEnd).first() }
 
-            // 加载首页第一页
+            // 加载首页第一页 (or we could reload up to current allExpensesPage.size if we want to maintain scroll position, but that's complex)
             val firstPage = expenseDao.getExpensesPaginated(Long.MAX_VALUE, PAGE_SIZE)
             allExpensesPage = firstPage.toMutableList()
             if (firstPage.isNotEmpty()) {
                 lastLoadedDate = firstPage.last().date
+            } else {
+                lastLoadedDate = Long.MAX_VALUE
             }
 
             val categories = categoriesDeferred.await()

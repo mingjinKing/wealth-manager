@@ -1,7 +1,8 @@
 package com.wealth.manager.ui.dashboard
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,43 +15,35 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FabPosition
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,7 +55,6 @@ import com.wealth.manager.ui.theme.Primary
 import com.wealth.manager.ui.theme.Surface
 import com.wealth.manager.ui.theme.TextSecondary
 import com.wealth.manager.ui.theme.Warning
-import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -75,10 +67,12 @@ fun DashboardScreen(
 ) {
     val state by viewModel.state.collectAsState()
     var selectedExpense by remember { mutableStateOf<ExpenseItem?>(null) }
-    var showBottomSheet by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    val sheetState = rememberModalBottomSheetState()
-    val scope = rememberCoroutineScope()
+
+    // 每次进入页面时刷新数据
+    LaunchedEffect(Unit) {
+        viewModel.loadDashboardData(showLoading = false)
+    }
 
     Scaffold(
         topBar = {
@@ -86,7 +80,7 @@ fun DashboardScreen(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "\uD83D\uDCB0 消费透视镜",
+                            text = "💰 消费透视镜",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -123,13 +117,12 @@ fun DashboardScreen(
     ) { paddingValues ->
         val listState = rememberLazyListState()
 
-        // 滚动到底部时触发加载更多
         LaunchedEffect(listState) {
             snapshotFlow {
                 val layoutInfo = listState.layoutInfo
                 val totalItems = layoutInfo.totalItemsCount
                 val lastVisibleItem = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-                lastVisibleItem >= totalItems - 3  // 距底部3项时触发
+                lastVisibleItem >= totalItems - 3
             }.collect { shouldLoadMore ->
                 if (shouldLoadMore) {
                     viewModel.loadMoreExpenses()
@@ -147,7 +140,6 @@ fun DashboardScreen(
         ) {
             item { Spacer(modifier = Modifier.height(4.dp)) }
 
-            // 月度概览卡片
             item {
                 MonthOverviewCard(
                     monthTotal = state.monthTotal,
@@ -155,14 +147,12 @@ fun DashboardScreen(
                 )
             }
 
-            // 哇时刻预览
             state.wowPreview?.let { wow ->
                 item {
                     WowPreviewCard(wowPreview = wow)
                 }
             }
 
-            // 每日收支明细
             if (state.dailyExpenses.isEmpty() && !state.isLoading) {
                 item {
                     Card(
@@ -198,16 +188,20 @@ fun DashboardScreen(
                     item(key = daily.dateMillis) {
                         DailyExpenseCard(
                             dailyExpense = daily,
-                            onExpenseClick = { expenseItem ->
-                                selectedExpense = expenseItem
-                                showBottomSheet = true
+                            onExpenseClick = { item ->
+                                // 点击直接修改
+                                onNavigateToAdd(item.expense.id)
+                            },
+                            onExpenseLongClick = { item ->
+                                // 长按弹出删除确认
+                                selectedExpense = item
+                                showDeleteDialog = true
                             }
                         )
                     }
                 }
             }
 
-            // 加载更多指示器
             if (state.isLoadingMore) {
                 item {
                     Box(
@@ -228,82 +222,6 @@ fun DashboardScreen(
             item { Spacer(modifier = Modifier.height(32.dp)) }
         }
 
-        // Bottom Sheet: Edit / Delete
-        if (showBottomSheet && selectedExpense != null) {
-            ModalBottomSheet(
-                onDismissRequest = {
-                    showBottomSheet = false
-                    selectedExpense = null
-                },
-                sheetState = sheetState,
-                containerColor = MaterialTheme.colorScheme.surface
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 32.dp)
-                ) {
-                    Text(
-                        text = "选择操作",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = TextSecondary,
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
-                    )
-
-                    // Edit
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                showBottomSheet = false
-                                onNavigateToAdd(selectedExpense!!.expense.id)
-                            }
-                            .padding(horizontal = 20.dp, vertical = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Text(
-                            text = "修改账单",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 20.dp))
-
-                    // Delete
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                showBottomSheet = false
-                                showDeleteDialog = true
-                            }
-                            .padding(horizontal = 20.dp, vertical = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = null,
-                            tint = Warning
-                        )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Text(
-                            text = "删除",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = Warning
-                        )
-                    }
-                }
-            }
-        }
-
-        // Delete confirmation dialog
         if (showDeleteDialog && selectedExpense != null) {
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = false },
@@ -384,7 +302,8 @@ fun MonthOverviewCard(
 @Composable
 fun DailyExpenseCard(
     dailyExpense: DailyExpense,
-    onExpenseClick: (ExpenseItem) -> Unit
+    onExpenseClick: (ExpenseItem) -> Unit,
+    onExpenseLongClick: (ExpenseItem) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -419,7 +338,8 @@ fun DailyExpenseCard(
             dailyExpense.expenses.forEach { item ->
                 DailyExpenseItem(
                     item = item,
-                    onClick = { onExpenseClick(item) }
+                    onClick = { onExpenseClick(item) },
+                    onLongClick = { onExpenseLongClick(item) }
                 )
                 if (item != dailyExpense.expenses.last()) {
                     Spacer(modifier = Modifier.height(8.dp))
@@ -429,16 +349,21 @@ fun DailyExpenseCard(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun DailyExpenseItem(
     item: ExpenseItem,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
             .padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
