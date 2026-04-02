@@ -49,26 +49,32 @@
 | id | Long | 主键，自增 |
 | name | String | 分类名称 |
 | icon | String | emoji 图标 |
+| color | String | 颜色（十六进制，如 #ffc880）|
+| type | String | 类型："EXPENSE"（支出）或 "INCOME"（收入），默认 "EXPENSE" |
+| isDefault | Boolean | 是否为默认分类，默认 true |
 
 ### 4.2 ExpenseEntity（消费记录表）
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | id | Long | 主键，自增 |
-| amount | Double | 金额 |
-| categoryId | Long | 分类ID（外键）|
+| amount | Double | 金额（正数，支出/收入由 Category.type 区分）|
+| categoryId | Long | 分类ID（外键，指向 CategoryEntity）|
 | note | String | 备注（最多50字）|
 | date | Long | 日期时间戳 |
-| type | Int | 类型（0=支出，1=收入）|
+| createdAt | Long | 创建时间，默认 System.currentTimeMillis() |
+
+> **收入/支出区分方式**：不通过 ExpenseEntity.type 字段区分，而是通过关联的 Category.type 属性区分（CategoryEntity 支持 type 字段）。
 
 ### 4.3 WeekStatsEntity（周统计表）
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| id | Long | 主键，自增 |
-| weekStartDate | Long | 周开始日期时间戳 |
-| totalSpend | Double | 周消费总额 |
+| weekStartDate | Long | 主键，周开始日期时间戳 |
+| totalAmount | Double | 周消费总额（含支出，正数）|
+| categoryBreakdown | String | 分类消费明细（JSON 格式）|
 | wowTriggered | Boolean | 是否触发哇时刻 |
+| savedAmount | Double | 本周节省金额（正数=少花了）|
 
 ### 4.4 AssetEntity（资产表）
 
