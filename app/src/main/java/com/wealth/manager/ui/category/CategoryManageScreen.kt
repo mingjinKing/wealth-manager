@@ -1,7 +1,9 @@
 package com.wealth.manager.ui.category
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,16 +23,21 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -38,6 +45,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -53,15 +61,16 @@ import com.wealth.manager.data.entity.CategoryEntity
 import com.wealth.manager.ui.theme.Primary
 import com.wealth.manager.ui.theme.Surface
 import com.wealth.manager.ui.theme.TextSecondary
+import com.wealth.manager.ui.theme.Warning
 
-// 预设 emoji 列表 - 已简化图标库
+// 预设 emoji 列表
 private val emojiList = listOf(
     "\uD83C\uDF57", "\uD83D\uDECD", "\uD83D\uDE8C", "\uD83C\uDFAE",
     "\uD83C\uDFE0", "\uD83C\uDFE5", "\uD83D\uDCDA", "\uD83D\uDCCB",
     "\uD83D\uDCB0", "\u2764\uFE0F", "\u2708\uFE0F", "\uD83D\uDE34",
     "\uD83C\uDF4E", "\uD83C\uDF55", "\uD83D\uDE97", "\uD83D\uDECF",
     "\uD83D\uDCBC", "\uD83C\uDF93", "\uD83D\uDCB5", "\uD83D\uDE84",
-    "\uD83E\uDDFC" // 代表日用品的香皂图标
+    "\uD83E\uDDFC"
 )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -70,45 +79,84 @@ fun CategoryManageScreen(
     viewModel: CategoryManageViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    var selectedTabIndex by remember { mutableIntStateOf(0) } // 0 for Expense, 1 for Income
+
     var showDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf<CategoryEntity?>(null) }
     var editingCategory by remember { mutableStateOf<CategoryEntity?>(null) }
     
     var categoryName by remember { mutableStateOf("") }
     var categoryEmoji by remember { mutableStateOf(emojiList.first()) }
+    var categoryType by remember { mutableStateOf("EXPENSE") }
+
+    val tabs = listOf("支出", "收入")
+    val blackColor = Color.Black
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "分类管理",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Medium
-                    )
-                },
-                actions = {
-                    IconButton(
-                        onClick = {
-                            editingCategory = null
-                            categoryName = ""
-                            categoryEmoji = emojiList.first()
-                            showDialog = true
+            Column {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = "分类管理",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                    },
+                    actions = {
+                        IconButton(
+                            onClick = {
+                                editingCategory = null
+                                categoryName = ""
+                                categoryEmoji = emojiList.first()
+                                categoryType = if (selectedTabIndex == 0) "EXPENSE" else "INCOME"
+                                showDialog = true
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "新增分类",
+                                tint = blackColor
+                            )
                         }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "新增分类",
-                            tint = Primary
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background
+                    )
+                )
+                TabRow(
+                    selectedTabIndex = selectedTabIndex,
+                    containerColor = MaterialTheme.colorScheme.background,
+                    contentColor = blackColor,
+                    indicator = { tabPositions ->
+                        TabRowDefaults.SecondaryIndicator(
+                            Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
+                            color = blackColor
+                        )
+                    },
+                    divider = {}
+                ) {
+                    tabs.forEachIndexed { index, title ->
+                        Tab(
+                            selected = selectedTabIndex == index,
+                            onClick = { selectedTabIndex = index },
+                            text = {
+                                Text(
+                                    text = title,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal,
+                                    color = blackColor
+                                )
+                            }
                         )
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
-            )
+                }
+            }
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
+        val currentCategories = if (selectedTabIndex == 0) state.expenseCategories else state.incomeCategories
+
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -118,56 +166,33 @@ fun CategoryManageScreen(
         ) {
             item { Spacer(modifier = Modifier.height(8.dp)) }
 
-            // 默认分类分组
-            if (state.defaultCategories.isNotEmpty()) {
+            if (currentCategories.isEmpty()) {
                 item {
-                    Text(
-                        text = "默认分类",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = TextSecondary,
-                        modifier = Modifier.padding(bottom = 4.dp)
-                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 100.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "暂无${tabs[selectedTabIndex]}分类",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondary
+                        )
+                    }
                 }
-                items(state.defaultCategories) { category ->
+            } else {
+                items(currentCategories) { category ->
                     CategoryItem(
-                        name = category.name,
-                        emoji = category.icon,
-                        color = Color(android.graphics.Color.parseColor(category.color)),
+                        category = category,
                         onClick = {
                             editingCategory = category
                             categoryName = category.name
                             categoryEmoji = category.icon
+                            categoryType = category.type
                             showDialog = true
                         },
-                        onDelete = { viewModel.deleteCategory(category.id) }
-                    )
-                }
-            }
-
-            item { Spacer(modifier = Modifier.height(16.dp)) }
-
-            // 自定义分类分组
-            if (state.customCategories.isNotEmpty()) {
-                item {
-                    Text(
-                        text = "自定义分类",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = TextSecondary,
-                        modifier = Modifier.padding(bottom = 4.dp)
-                    )
-                }
-                items(state.customCategories) { category ->
-                    CategoryItem(
-                        name = category.name,
-                        emoji = category.icon,
-                        color = Color(android.graphics.Color.parseColor(category.color)),
-                        onClick = {
-                            editingCategory = category
-                            categoryName = category.name
-                            categoryEmoji = category.icon
-                            showDialog = true
-                        },
-                        onDelete = { viewModel.deleteCategory(category.id) }
+                        onLongClick = { showDeleteConfirm = category }
                     )
                 }
             }
@@ -183,6 +208,32 @@ fun CategoryManageScreen(
             title = { Text(if (editingCategory == null) "新增分类" else "编辑分类") },
             text = {
                 Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = categoryType == "EXPENSE",
+                            onClick = { categoryType = "EXPENSE" },
+                            label = { Text("支出") },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = blackColor.copy(alpha = 0.1f),
+                                selectedLabelColor = blackColor,
+                                labelColor = blackColor
+                            )
+                        )
+                        FilterChip(
+                            selected = categoryType == "INCOME",
+                            onClick = { categoryType = "INCOME" },
+                            label = { Text("收入") },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = blackColor.copy(alpha = 0.1f),
+                                selectedLabelColor = blackColor,
+                                labelColor = blackColor
+                            )
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = categoryName,
                         onValueChange = { categoryName = it },
@@ -207,7 +258,7 @@ fun CategoryManageScreen(
                                     .size(52.dp)
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(
-                                        if (emoji == categoryEmoji) Primary.copy(alpha = 0.2f)
+                                        if (emoji == categoryEmoji) blackColor.copy(alpha = 0.1f)
                                         else Surface
                                     )
                                     .clickable { categoryEmoji = emoji },
@@ -224,38 +275,65 @@ fun CategoryManageScreen(
                     onClick = {
                         if (categoryName.isNotBlank()) {
                             if (editingCategory == null) {
-                                viewModel.addCategory(categoryName.trim(), categoryEmoji)
+                                viewModel.addCategory(categoryName.trim(), categoryEmoji, categoryType)
                             } else {
-                                viewModel.updateCategory(editingCategory!!, categoryName.trim(), categoryEmoji)
+                                viewModel.updateCategory(editingCategory!!, categoryName.trim(), categoryEmoji, categoryType)
                             }
                             showDialog = false
                         }
                     }
                 ) {
-                    Text(if (editingCategory == null) "添加" else "保存")
+                    Text(if (editingCategory == null) "添加" else "保存", color = blackColor)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDialog = false }) {
-                    Text("取消")
+                    Text("取消", color = TextSecondary)
+                }
+            }
+        )
+    }
+
+    // 删除确认弹窗
+    if (showDeleteConfirm != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = null },
+            title = { Text("删除分类") },
+            text = { Text("确定要删除“${showDeleteConfirm?.name}”吗？关联的账单可能需要手动调整。") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteConfirm?.let { viewModel.deleteCategory(it.id) }
+                        showDeleteConfirm = null
+                    }
+                ) {
+                    Text("删除", color = Warning)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = null }) {
+                    Text("取消", color = TextSecondary)
                 }
             }
         )
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun CategoryItem(
-    name: String,
-    emoji: String,
-    color: Color,
+    category: CategoryEntity,
     onClick: () -> Unit,
-    onDelete: () -> Unit
+    onLongClick: () -> Unit
 ) {
+    val color = Color(android.graphics.Color.parseColor(category.color))
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            ),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
@@ -278,21 +356,16 @@ private fun CategoryItem(
                         .background(color.copy(alpha = 0.15f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(text = emoji, style = MaterialTheme.typography.bodyMedium)
+                    Text(text = category.icon, style = MaterialTheme.typography.bodyMedium)
                 }
                 Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = name,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-            IconButton(onClick = onDelete) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "删除",
-                    tint = TextSecondary.copy(alpha = 0.6f)
-                )
+                Column {
+                    Text(
+                        text = category.name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
             }
         }
     }

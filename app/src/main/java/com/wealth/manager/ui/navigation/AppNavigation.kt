@@ -24,17 +24,17 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Insights
-import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Insights
+import androidx.compose.material.icons.outlined.Star
 
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -44,10 +44,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -231,7 +233,9 @@ fun AppNavigation() {
                         .imePadding()
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp), // 调小菜单栏顶部间隙
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
                         bottomNavItems.forEach { item ->
@@ -244,20 +248,23 @@ fun AppNavigation() {
                                             launchSingleTop = true
                                         }
                                     }
-                                    .padding(vertical = 8.dp),
+                                    .padding(top = 4.dp, bottom = 10.dp), // 减小顶部内边距，保持底部内边距
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Icon(
                                     imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
                                     contentDescription = item.label,
-                                    tint = if (selected) Primary else TextSecondary,
-                                    modifier = Modifier.size(22.dp)
+                                    tint = if (selected) Color.Black else Color.Black.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(24.dp)
                                 )
-                                Spacer(modifier = Modifier.height(2.dp))
+                                Spacer(modifier = Modifier.height(2.dp)) // 调小图标与文字之间的间距
                                 Text(
                                     text = item.label,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = if (selected) Primary else TextSecondary
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontSize = 12.sp,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                                    ),
+                                    color = if (selected) Color.Black else Color.Black.copy(alpha = 0.6f)
                                 )
                             }
                         }

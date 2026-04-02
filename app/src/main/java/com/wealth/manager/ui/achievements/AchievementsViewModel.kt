@@ -1,12 +1,15 @@
 package com.wealth.manager.ui.achievements
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wealth.manager.data.dao.AssetDao
 import com.wealth.manager.data.dao.BudgetDao
+import com.wealth.manager.data.dao.CategoryDao
 import com.wealth.manager.data.dao.ExpenseDao
 import com.wealth.manager.data.entity.BudgetEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -17,14 +20,30 @@ import javax.inject.Inject
 class AchievementsViewModel @Inject constructor(
     private val expenseDao: ExpenseDao,
     private val assetDao: AssetDao,
-    private val budgetDao: BudgetDao
+    private val budgetDao: BudgetDao,
+    private val categoryDao: CategoryDao,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(AchievementsState())
+    private val prefs = context.getSharedPreferences("achievements_prefs", Context.MODE_PRIVATE)
+
+    private val _state = MutableStateFlow(loadInitialState())
     val state: StateFlow<AchievementsState> = _state.asStateFlow()
 
     init {
         loadData()
+    }
+
+    private fun loadInitialState(): AchievementsState {
+        return AchievementsState(
+            assetGoal = prefs.getFloat("asset_goal", 100000f).toDouble(),
+            goalStartDate = prefs.getLong("goal_start_date", System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000),
+            goalDate = prefs.getLong("goal_date", System.currentTimeMillis() + 365L * 24 * 60 * 60 * 1000),
+            isAssetVisible = prefs.getBoolean("is_asset_visible", true),
+            isGoalVisible = prefs.getBoolean("is_goal_visible", true),
+            isBudgetVisible = prefs.getBoolean("is_budget_visible", true),
+            isTrendVisible = prefs.getBoolean("is_trend_visible", true)
+        )
     }
 
     private fun loadData() {
@@ -36,12 +55,14 @@ class AchievementsViewModel @Inject constructor(
         calendar.set(Calendar.HOUR_OF_DAY, 0)
         calendar.set(Calendar.MINUTE, 0)
         calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
         val monthStart = calendar.timeInMillis
         
         calendar.set(Calendar.DAY_OF_MONTH, calendar.getActualMaximum(Calendar.DAY_OF_MONTH))
         calendar.set(Calendar.HOUR_OF_DAY, 23)
         calendar.set(Calendar.MINUTE, 59)
         calendar.set(Calendar.SECOND, 59)
+        calendar.set(Calendar.MILLISECOND, 999)
         val monthEnd = calendar.timeInMillis
 
         // 获取本周起止时间
@@ -50,28 +71,38 @@ class AchievementsViewModel @Inject constructor(
         weeklyCalendar.set(Calendar.HOUR_OF_DAY, 0)
         weeklyCalendar.set(Calendar.MINUTE, 0)
         weeklyCalendar.set(Calendar.SECOND, 0)
+        weeklyCalendar.set(Calendar.MILLISECOND, 0)
         val weekStart = weeklyCalendar.timeInMillis
         weeklyCalendar.add(Calendar.DAY_OF_WEEK, 6)
         weeklyCalendar.set(Calendar.HOUR_OF_DAY, 23)
         weeklyCalendar.set(Calendar.MINUTE, 59)
         weeklyCalendar.set(Calendar.SECOND, 59)
+        weeklyCalendar.set(Calendar.MILLISECOND, 999)
         val weekEnd = weeklyCalendar.timeInMillis
 
         viewModelScope.launch {
             combine(
-                expenseDao.getTotalAmountByDateRange(monthStart, monthEnd),
-                expenseDao.getTotalAmountByDateRange(weekStart, weekEnd),
+                expenseDao.getExpensesByDateRange(monthStart, monthEnd),
+                expenseDao.getExpensesByDateRange(weekStart, weekEnd),
+                categoryDao.getAllCategories(),
                 assetDao.getTotalAssets(),
                 assetDao.getTotalLiabilities(),
                 budgetDao.getGlobalBudget(currentMonthStr),
                 budgetDao.getGlobalBudget("WEEKLY")
             ) { args: Array<Any?> ->
-                val monthlySpent = args[0] as Double? ?: 0.0
-                val weeklySpent = args[1] as Double? ?: 0.0
-                val totalAssets = args[2] as Double? ?: 0.0
-                val totalLiabilities = args[3] as Double? ?: 0.0
-                val monthlyBudget = args[4] as BudgetEntity?
-                val weeklyBudget = args[5] as BudgetEntity?
+                val monthExpenses = args[0] as List<com.wealth.manager.data.entity.ExpenseEntity>? ?: emptyList()
+                val weekExpenses = args[1] as List<com.wealth.manager.data.entity.ExpenseEntity>? ?: emptyList()
+                val allCategories = args[2] as List<com.wealth.manager.data.entity.CategoryEntity>? ?: emptyList()
+                val totalAssets = args[3] as Double? ?: 0.0
+                val totalLiabilities = args[4] as Double? ?: 0.0
+                val monthlyBudget = args[5] as BudgetEntity?
+                val weeklyBudget = args[6] as BudgetEntity?
+
+                val incomeCategoryIds = allCategories.filter { it.type == "INCOME" }.map { it.id }.toSet()
+                
+                // 仅计算支出类型账单的总额
+                val monthlySpent = monthExpenses.filter { it.categoryId !in incomeCategoryIds }.sumOf { it.amount }
+                val weeklySpent = weekExpenses.filter { it.categoryId !in incomeCategoryIds }.sumOf { it.amount }
                 
                 val netWorth = totalAssets + totalLiabilities
                 val activeType = if ((monthlyBudget?.amount ?: 0.0) <= 0.0 && (weeklyBudget?.amount ?: 0.0) > 0.0) "WEEKLY" else "MONTHLY"
@@ -119,19 +150,27 @@ class AchievementsViewModel @Inject constructor(
     }
 
     fun toggleAssetVisibility() {
-        _state.value = _state.value.copy(isAssetVisible = !_state.value.isAssetVisible)
+        val newVal = !_state.value.isAssetVisible
+        prefs.edit().putBoolean("is_asset_visible", newVal).apply()
+        _state.value = _state.value.copy(isAssetVisible = newVal)
     }
 
     fun toggleGoalVisibility() {
-        _state.value = _state.value.copy(isGoalVisible = !_state.value.isGoalVisible)
+        val newVal = !_state.value.isGoalVisible
+        prefs.edit().putBoolean("is_goal_visible", newVal).apply()
+        _state.value = _state.value.copy(isGoalVisible = newVal)
     }
 
     fun toggleBudgetVisibility() {
-        _state.value = _state.value.copy(isBudgetVisible = !_state.value.isBudgetVisible)
+        val newVal = !_state.value.isBudgetVisible
+        prefs.edit().putBoolean("is_budget_visible", newVal).apply()
+        _state.value = _state.value.copy(isBudgetVisible = newVal)
     }
 
     fun toggleTrendVisibility() {
-        _state.value = _state.value.copy(isTrendVisible = !_state.value.isTrendVisible)
+        val newVal = !_state.value.isTrendVisible
+        prefs.edit().putBoolean("is_trend_visible", newVal).apply()
+        _state.value = _state.value.copy(isTrendVisible = newVal)
     }
 
     fun updateBudget(type: String, amount: Double) {
@@ -159,10 +198,17 @@ class AchievementsViewModel @Inject constructor(
     }
     
     fun updateAssetGoal(goal: Double, date: Long) {
+        val startTime = System.currentTimeMillis()
+        prefs.edit()
+            .putFloat("asset_goal", goal.toFloat())
+            .putLong("goal_date", date)
+            .putLong("goal_start_date", startTime)
+            .apply()
+
         _state.value = _state.value.copy(
             assetGoal = goal, 
             goalDate = date,
-            goalStartDate = System.currentTimeMillis()
+            goalStartDate = startTime
         )
         loadData()
     }

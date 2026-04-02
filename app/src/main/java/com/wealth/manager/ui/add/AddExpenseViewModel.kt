@@ -42,31 +42,29 @@ class AddExpenseViewModel @Inject constructor(
 
     private fun ensureDefaultCategories() {
         viewModelScope.launch {
-            val defaultCategories = listOf(
-                // 支出分类
-                CategoryEntity(name = "餐饮", icon = "🍗", color = "#ffc880", type = "EXPENSE"),
-                CategoryEntity(name = "购物", icon = "🛍️", color = "#4A90D9", type = "EXPENSE"),
-                CategoryEntity(name = "交通", icon = "🚌", color = "#E55B5B", type = "EXPENSE"),
-                CategoryEntity(name = "娱乐", icon = "🎮", color = "#9C27B0", type = "EXPENSE"),
-                CategoryEntity(name = "居住", icon = "🏠", color = "#4CAF50", type = "EXPENSE"),
-                CategoryEntity(name = "医疗", icon = "🏥", color = "#F44336", type = "EXPENSE"),
-                CategoryEntity(name = "学习", icon = "📚", color = "#2196F3", type = "EXPENSE"),
-                CategoryEntity(name = "其他", icon = "📋", color = "#9E9E9E", type = "EXPENSE"),
-                // 收入分类
-                CategoryEntity(name = "工资", icon = "💰", color = "#4CAF50", type = "INCOME"),
-                CategoryEntity(name = "奖金", icon = "🧧", color = "#F44336", type = "INCOME"),
-                CategoryEntity(name = "兼职", icon = "🚲", color = "#FF9800", type = "INCOME"),
-                CategoryEntity(name = "理财", icon = "📈", color = "#2196F3", type = "INCOME"),
-                CategoryEntity(name = "礼金", icon = "🎁", color = "#E91E63", type = "INCOME"),
-                CategoryEntity(name = "报销", icon = "📝", color = "#00BCD4", type = "INCOME"),
-                CategoryEntity(name = "转卖", icon = "♻️", color = "#8BC34A", type = "INCOME"),
-                CategoryEntity(name = "其他收入", icon = "💸", color = "#9E9E9E", type = "INCOME")
-            )
-            
-            for (category in defaultCategories) {
-                if (categoryDao.getCategoryByName(category.name) == null) {
-                    categoryDao.insertCategory(category)
-                }
+            // 仅当数据库中一个分类都没有时才进行初始化填充
+            if (categoryDao.getCategoryCount() == 0) {
+                val defaultCategories = listOf(
+                    // 支出分类
+                    CategoryEntity(name = "餐饮", icon = "🍗", color = "#ffc880", type = "EXPENSE"),
+                    CategoryEntity(name = "购物", icon = "🛍️", color = "#4A90D9", type = "EXPENSE"),
+                    CategoryEntity(name = "交通", icon = "🚌", color = "#E55B5B", type = "EXPENSE"),
+                    CategoryEntity(name = "娱乐", icon = "🎮", color = "#9C27B0", type = "EXPENSE"),
+                    CategoryEntity(name = "居住", icon = "🏠", color = "#4CAF50", type = "EXPENSE"),
+                    CategoryEntity(name = "医疗", icon = "🏥", color = "#F44336", type = "EXPENSE"),
+                    CategoryEntity(name = "学习", icon = "📚", color = "#2196F3", type = "EXPENSE"),
+                    CategoryEntity(name = "其他", icon = "📋", color = "#9E9E9E", type = "EXPENSE"),
+                    // 收入分类
+                    CategoryEntity(name = "工资", icon = "💰", color = "#4CAF50", type = "INCOME"),
+                    CategoryEntity(name = "奖金", icon = "🧧", color = "#F44336", type = "INCOME"),
+                    CategoryEntity(name = "兼职", icon = "🚲", color = "#FF9800", type = "INCOME"),
+                    CategoryEntity(name = "理财", icon = "📈", color = "#2196F3", type = "INCOME"),
+                    CategoryEntity(name = "礼金", icon = "🎁", color = "#E91E63", type = "INCOME"),
+                    CategoryEntity(name = "报销", icon = "📝", color = "#00BCD4", type = "INCOME"),
+                    CategoryEntity(name = "转卖", icon = "♻️", color = "#8BC34A", type = "INCOME"),
+                    CategoryEntity(name = "其他收入", icon = "💸", color = "#9E9E9E", type = "INCOME")
+                )
+                categoryDao.insertCategories(defaultCategories)
             }
         }
     }

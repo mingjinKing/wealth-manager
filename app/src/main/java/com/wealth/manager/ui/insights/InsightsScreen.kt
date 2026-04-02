@@ -20,17 +20,22 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DateRangePicker
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -40,14 +45,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.wealth.manager.ui.theme.Income
 import com.wealth.manager.ui.theme.Primary
 import com.wealth.manager.ui.theme.Surface
 import com.wealth.manager.ui.theme.TextSecondary
+import com.wealth.manager.ui.theme.Warning
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -58,6 +67,10 @@ fun InsightsScreen(
     viewModel: InsightsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    var showDateRangePicker by remember { mutableStateOf(false) }
+    val dateRangePickerState = rememberDateRangePickerState()
+
+    val dateFormatter = remember { SimpleDateFormat("MM月dd日", Locale.CHINA) }
 
     Scaffold(
         topBar = {
@@ -77,6 +90,15 @@ fun InsightsScreen(
                         )
                     }
                 },
+                actions = {
+                    IconButton(onClick = { showDateRangePicker = true }) {
+                        Icon(
+                            imageVector = Icons.Default.DateRange,
+                            contentDescription = "筛选日期",
+                            tint = Color.Black
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
                 )
@@ -91,9 +113,9 @@ fun InsightsScreen(
                     .padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = "加载中...", color = TextSecondary)
+                Text(text = "分析中...", color = TextSecondary)
             }
-        } else if (state.summaryItems.isEmpty()) {
+        } else if (state.summaryItems.isEmpty() && state.totalIncome <= 0) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -104,10 +126,32 @@ fun InsightsScreen(
                     Text(text = "🔍", style = MaterialTheme.typography.displayLarge)
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "本月暂无消费记录",
+                        text = if (state.isDefaultMonth) "本月暂无记录" else "选定期间暂无记录",
                         style = MaterialTheme.typography.bodyLarge,
                         color = TextSecondary
                     )
+                    if (!state.isDefaultMonth) {
+                        TextButton(onClick = { 
+                            val calendar = Calendar.getInstance()
+                            calendar.set(Calendar.DAY_OF_MONTH, 1)
+                            calendar.set(Calendar.HOUR_OF_DAY, 0)
+                            calendar.set(Calendar.MINUTE, 0)
+                            calendar.set(Calendar.SECOND, 0)
+                            calendar.set(Calendar.MILLISECOND, 0)
+                            val start = calendar.timeInMillis
+                            
+                            calendar.set(Calendar.DAY_OF_MONTH, calendar.getActualMaximum(Calendar.DAY_OF_MONTH))
+                            calendar.set(Calendar.HOUR_OF_DAY, 23)
+                            calendar.set(Calendar.MINUTE, 59)
+                            calendar.set(Calendar.SECOND, 59)
+                            calendar.set(Calendar.MILLISECOND, 999)
+                            val end = calendar.timeInMillis
+                            
+                            viewModel.loadInsights(start, end, true) 
+                        }) {
+                            Text("返回本月", color = Color.Black)
+                        }
+                    }
                 }
             }
         } else {
@@ -119,18 +163,63 @@ fun InsightsScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 item {
-                    Text(
-                        text = "本月总支出：¥${String.format(Locale.CHINA, "%.2f", state.totalAmount)}",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (!state.isDefaultMonth) {
+                            Text(
+                                text = "${dateFormatter.format(Date(state.startTime))} - ${dateFormatter.format(Date(state.endTime))}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.Black,
+                                modifier = Modifier.padding(bottom = 4.dp),
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = if (state.isDefaultMonth) "本月总支出" else "期间总支出",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = TextSecondary
+                            )
+                            Text(
+                                text = "¥${String.format(Locale.CHINA, "%.2f", state.totalAmount)}",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = Warning
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = if (state.isDefaultMonth) "本月总收入" else "期间总收入",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = TextSecondary
+                            )
+                            Text(
+                                text = "¥${String.format(Locale.CHINA, "%.2f", state.totalIncome)}",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = Income
+                            )
+                        }
+                    }
                 }
 
-                // 1. 分类 analysis
+                // 1. 分类占比
                 item {
                     Text(
-                        text = "消费分类占比",
+                        text = if (state.isDefaultMonth) "消费分类占比" else "期间分类占比",
                         style = MaterialTheme.typography.labelLarge,
                         color = TextSecondary,
                         modifier = Modifier.padding(bottom = 8.dp)
@@ -142,22 +231,64 @@ fun InsightsScreen(
                 }
 
                 // 2. AI 洞察
-                item {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "AI 全局洞察",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = TextSecondary,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                }
+                if (state.globalAnalysis.isNotEmpty()) {
+                    item {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = if (state.isDefaultMonth) "AI 全局洞察" else "AI 期间分析",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = TextSecondary,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
 
-                item {
-                    GlobalAnalysisCard(analysisPoints = state.globalAnalysis)
+                    item {
+                        GlobalAnalysisCard(analysisPoints = state.globalAnalysis)
+                    }
                 }
 
                 item { Spacer(modifier = Modifier.height(80.dp)) }
             }
+        }
+    }
+
+    if (showDateRangePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDateRangePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val start = dateRangePickerState.selectedStartDateMillis
+                        val end = dateRangePickerState.selectedEndDateMillis
+                        if (start != null && end != null) {
+                            // 修正结束时间为当天的 23:59:59
+                            val calendar = Calendar.getInstance()
+                            calendar.timeInMillis = end
+                            calendar.set(Calendar.HOUR_OF_DAY, 23)
+                            calendar.set(Calendar.MINUTE, 59)
+                            calendar.set(Calendar.SECOND, 59)
+                            calendar.set(Calendar.MILLISECOND, 999)
+                            viewModel.loadInsights(start, calendar.timeInMillis, false)
+                        }
+                        showDateRangePicker = false
+                    }
+                ) {
+                    Text("确定", color = Color.Black)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDateRangePicker = false }) {
+                    Text("取消", color = TextSecondary)
+                }
+            }
+        ) {
+            DateRangePicker(
+                state = dateRangePickerState,
+                modifier = Modifier.height(480.dp),
+                title = { Text(text = "选择统计期间", modifier = Modifier.padding(16.dp)) },
+                headline = { Text(text = "筛选任意时段", modifier = Modifier.padding(horizontal = 16.dp)) },
+                showModeToggle = false
+            )
         }
     }
 }
@@ -195,7 +326,7 @@ fun MonthlyCategoryCard(item: CategorySummary) {
                     text = "¥${String.format(Locale.CHINA, "%.2f", item.amount)}",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = Primary
+                    color = Warning
                 )
             }
 
@@ -309,4 +440,8 @@ fun GlobalAnalysisCard(analysisPoints: List<String>) {
             }
         }
     }
+}
+
+fun formatAmount(amount: Double): String {
+    return String.format(Locale.getDefault(), "%,.2f", amount)
 }

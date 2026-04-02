@@ -1,5 +1,6 @@
 package com.wealth.manager.ui.dashboard
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wealth.manager.data.dao.CategoryDao
@@ -7,6 +8,7 @@ import com.wealth.manager.data.dao.ExpenseDao
 import com.wealth.manager.data.dao.WeekStatsDao
 import com.wealth.manager.data.entity.ExpenseEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,10 +26,15 @@ private const val PAGE_SIZE = 30  // 每次加载约5-6天记录
 class DashboardViewModel @Inject constructor(
     private val expenseDao: ExpenseDao,
     private val categoryDao: CategoryDao,
-    private val weekStatsDao: WeekStatsDao
+    private val weekStatsDao: WeekStatsDao,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(DashboardState())
+    private val prefs = context.getSharedPreferences("dashboard_prefs", Context.MODE_PRIVATE)
+
+    private val _state = MutableStateFlow(DashboardState(
+        customBackgroundImageUri = prefs.getString("custom_bg_uri", null)
+    ))
     val state: StateFlow<DashboardState> = _state.asStateFlow()
 
     private var allExpensesPage = mutableListOf<ExpenseEntity>()
@@ -44,13 +51,18 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
+    fun updateCustomBackground(uri: String?) {
+        prefs.edit().putString("custom_bg_uri", uri).apply()
+        _state.value = _state.value.copy(customBackgroundImageUri = uri)
+    }
+
     fun loadDashboardData(showLoading: Boolean = true) {
         viewModelScope.launch {
             if (showLoading) {
                 _state.value = _state.value.copy(isLoading = true)
             }
             
-            val monthStart = getCurrentMonthRange().first
+            val (monthStart, monthEnd) = getCurrentMonthRange()
             val (sevenDaysStart, sevenDaysEnd) = getLast7DaysRange()
             
             // 限制在当月内：取当月开始时间和 7 天前开始时间的较晚者
@@ -59,7 +71,7 @@ class DashboardViewModel @Inject constructor(
             // 并行加载所有数据（Flow → List）
             val categoriesDeferred = async { categoryDao.getAllCategories().first() }
             val weekStatsDeferred = async { weekStatsDao.getRecentWeekStats(4).first() }
-            val monthExpensesDeferred = async { expenseDao.getExpensesByDateRange(monthStart, System.currentTimeMillis()).first() }
+            val monthExpensesDeferred = async { expenseDao.getExpensesByDateRange(monthStart, monthEnd).first() }
             val recent7DaysDeferred = async { expenseDao.getExpensesByDateRange(recent7DaysStart, sevenDaysEnd).first() }
 
             val firstPage = expenseDao.getExpensesPaginated(Long.MAX_VALUE, PAGE_SIZE)
@@ -96,7 +108,7 @@ class DashboardViewModel @Inject constructor(
                 )
             } else null
 
-            _state.value = DashboardState(
+            _state.value = _state.value.copy(
                 isLoading = false,
                 isLoadingMore = false,
                 hasMorePages = firstPage.size >= PAGE_SIZE,
@@ -208,7 +220,15 @@ class DashboardViewModel @Inject constructor(
         cal.set(Calendar.SECOND, 0)
         cal.set(Calendar.MILLISECOND, 0)
         val monthStart = cal.timeInMillis
-        return Pair(monthStart, System.currentTimeMillis())
+        
+        cal.set(Calendar.DAY_OF_MONTH, cal.getActualMaximum(Calendar.DAY_OF_MONTH))
+        cal.set(Calendar.HOUR_OF_DAY, 23)
+        cal.set(Calendar.MINUTE, 59)
+        cal.set(Calendar.SECOND, 59)
+        cal.set(Calendar.MILLISECOND, 999)
+        val monthEnd = cal.timeInMillis
+        
+        return Pair(monthStart, monthEnd)
     }
 
     private fun getLast7DaysRange(): Pair<Long, Long> {

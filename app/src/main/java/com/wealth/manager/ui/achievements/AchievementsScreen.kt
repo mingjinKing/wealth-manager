@@ -1,5 +1,6 @@
 package com.wealth.manager.ui.achievements
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -103,7 +104,7 @@ fun AchievementsScreen(
                     
                     GoalCard(
                         title = "资产目标",
-                        description = "目标：¥${formatAmount(state.assetGoal)} (${if(daysLeft > 0) "${daysLeft}天后截止" else "已截止"})",
+                        description = "目标：${if (state.isGoalVisible) "¥" + formatAmount(state.assetGoal) else "****"} (${if(daysLeft > 0) "${daysLeft}天后截止" else "已截止"})",
                         currentInfo = "当前净资产：${if (state.isGoalVisible) "¥" + formatAmount(state.netWorth) else "****"}",
                         progress = (state.netWorth / state.assetGoal).coerceAtMost(1.0).toFloat(),
                         timeProgress = timeProgress,
@@ -122,7 +123,7 @@ fun AchievementsScreen(
                     
                     GoalCard(
                         title = "预算管理 (${if (isMonthly) "月" else "周"})",
-                        description = "${if (isMonthly) "本月" else "本周"}总预算：¥${formatAmount(budget)}",
+                        description = "${if (isMonthly) "本月" else "本周"}总预算：${if (state.isBudgetVisible) "¥" + formatAmount(budget) else "****"}",
                         currentInfo = "已支出：${if (state.isBudgetVisible) "¥" + formatAmount(spent) else "****"}",
                         subInfo = "可去算算账查看明细",
                         progress = budgetProgress.coerceAtMost(1f),

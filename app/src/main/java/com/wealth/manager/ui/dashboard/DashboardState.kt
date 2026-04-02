@@ -8,11 +8,12 @@ data class DashboardState(
     val isLoadingMore: Boolean = false,
     val hasMorePages: Boolean = true,
     val monthTotal: Double = 0.0,
-    val monthIncome: Double = 0.0, // 新增：月收入
+    val monthIncome: Double = 0.0,
     val recent7DaysTotal: Double = 0.0,
     val dailyExpenses: List<DailyExpense> = emptyList(),
     val wowPreview: WowPreview? = null,
-    val categories: List<CategoryEntity> = emptyList()
+    val categories: List<CategoryEntity> = emptyList(),
+    val customBackgroundImageUri: String? = null // 新增：自定义背景图片 URI
 )
 
 data class DailyExpense(

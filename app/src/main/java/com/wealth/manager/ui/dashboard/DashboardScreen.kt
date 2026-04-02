@@ -1,5 +1,8 @@
 package com.wealth.manager.ui.dashboard
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -25,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -55,13 +59,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
 import com.wealth.manager.R
+import com.wealth.manager.ui.theme.Income
 import com.wealth.manager.ui.theme.Primary
 import com.wealth.manager.ui.theme.Surface
 import com.wealth.manager.ui.theme.TextSecondary
@@ -79,8 +86,18 @@ fun DashboardScreen(
     val state by viewModel.state.collectAsState()
     var selectedExpense by remember { mutableStateOf<ExpenseItem?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
-    // 使用存放在 drawable 目录下的照片
+    // 使用 GetContent 替代 PickVisualMedia，以便在更多手机上弹出“相册/图库”选择入口
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            viewModel.updateCustomBackground(it.toString())
+        }
+    }
+
+    // 默认背景资源
     val backgroundResources = listOf(
         R.drawable.background_1,
         R.drawable.background_2
@@ -100,6 +117,15 @@ fun DashboardScreen(
                         Icon(
                             imageVector = Icons.Default.Menu,
                             contentDescription = "菜单",
+                            tint = Color.White
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { launcher.launch("image/*") }) {
+                        Icon(
+                            imageVector = Icons.Default.Palette, // 使用更简约的皮肤/主题图标
+                            contentDescription = "更换背景",
                             tint = Color.White
                         )
                     }
@@ -150,8 +176,13 @@ fun DashboardScreen(
                     monthIncome = state.monthIncome,
                     recent7DaysTotal = state.recent7DaysTotal,
                     bgResourceId = backgroundResources[currentBgIndex],
+                    customBgUri = state.customBackgroundImageUri,
                     onBgClick = {
-                        currentBgIndex = (currentBgIndex + 1) % backgroundResources.size
+                        if (state.customBackgroundImageUri == null) {
+                            currentBgIndex = (currentBgIndex + 1) % backgroundResources.size
+                        } else {
+                            viewModel.updateCustomBackground(null)
+                        }
                     }
                 )
             }
@@ -248,23 +279,31 @@ fun MonthOverviewCard(
     monthIncome: Double,
     recent7DaysTotal: Double,
     bgResourceId: Int,
+    customBgUri: String?,
     onBgClick: () -> Unit
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(4f / 3f) // 设置比例为 4:3
+            .aspectRatio(4f / 3f)
             .clickable { onBgClick() }
     ) {
-        // 背景照片
-        Image(
-            painter = painterResource(id = bgResourceId),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
+        if (customBgUri != null) {
+            AsyncImage(
+                model = customBgUri,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            Image(
+                painter = painterResource(id = bgResourceId),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        }
 
-        // 渐变蒙层：确保照片过亮时文字依然清晰
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -393,6 +432,7 @@ fun DailyExpenseItem(
     onClick: () -> Unit,
     onLongClick: () -> Unit
 ) {
+    val isIncome = item.category.type == "INCOME"
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -437,10 +477,10 @@ fun DailyExpenseItem(
             }
         }
         Text(
-            text = "-¥ ${NumberFormat.getNumberInstance(Locale.CHINA).format(item.expense.amount)}",
+            text = "${if (isIncome) "+" else "-"}¥ ${NumberFormat.getNumberInstance(Locale.CHINA).format(item.expense.amount)}",
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Medium,
-            color = Warning
+            color = if (isIncome) Income else Warning
         )
     }
 }
