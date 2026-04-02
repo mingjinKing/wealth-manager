@@ -97,14 +97,15 @@ class DashboardViewModel @Inject constructor(
             val avgLast4Weeks = recentStats.take(4).map { it.totalAmount }.average()
                 .takeIf { !it.isNaN() } ?: recent7DaysTotalExpense
             val savedAmount = avgLast4Weeks - recent7DaysTotalExpense
-            
-            // 降低触发门槛以便展示激励层，或根据用户需求“启用”
-            val isTriggered = savedAmount > 0 
+
+            // 按 SPEC 公式触发哇时刻：
+            // wow_triggered = savedAmount > ¥100 AND savedAmount > last_4_week_avg × 20%
+            val isTriggered = savedAmount > 100 && savedAmount > avgLast4Weeks * 0.2
             val wowPreview = if (isTriggered) {
                 WowPreview(
                     savedAmount = savedAmount,
                     isTriggered = true,
-                    reason = if (savedAmount > 100) "本周消费控制极佳！" else "继续保持良好的消费习惯"
+                    reason = “本周消费控制极佳！”
                 )
             } else null
 
