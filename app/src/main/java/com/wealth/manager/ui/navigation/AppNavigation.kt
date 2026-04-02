@@ -63,8 +63,8 @@ import com.wealth.manager.ui.category.CategoryManageScreen
 import com.wealth.manager.ui.dashboard.DashboardScreen
 import com.wealth.manager.ui.importdata.ImportScreen
 import com.wealth.manager.ui.insights.InsightsScreen
+import com.wealth.manager.ui.settings.SettingsScreen
 import com.wealth.manager.ui.theme.Background
-import com.wealth.manager.ui.theme.Primary
 import com.wealth.manager.ui.theme.Surface
 import com.wealth.manager.ui.theme.TextSecondary
 import kotlinx.coroutines.launch
@@ -137,7 +137,7 @@ fun AppNavigation() {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Primary)
+                            .background(MaterialTheme.colorScheme.primary)
                             .padding(horizontal = 20.dp, vertical = 32.dp)
                     ) {
                         Image(
@@ -174,7 +174,7 @@ fun AppNavigation() {
                                     }
                                 }
                                 .background(
-                                    if (isRouteSelected(item.route)) Primary.copy(alpha = 0.1f)
+                                    if (isRouteSelected(item.route)) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                                     else Surface
                                 )
                                 .padding(horizontal = 20.dp, vertical = 14.dp),
@@ -183,14 +183,14 @@ fun AppNavigation() {
                             Icon(
                                 imageVector = item.icon,
                                 contentDescription = item.label,
-                                tint = if (isRouteSelected(item.route)) Primary else TextSecondary,
+                                tint = if (isRouteSelected(item.route)) MaterialTheme.colorScheme.primary else TextSecondary,
                                 modifier = Modifier.size(22.dp)
                             )
                             Spacer(modifier = Modifier.width(16.dp))
                             Text(
                                 text = item.label,
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = if (isRouteSelected(item.route)) Primary else MaterialTheme.colorScheme.onSurface,
+                                color = if (isRouteSelected(item.route)) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                                 fontWeight = if (isRouteSelected(item.route)) FontWeight.Medium else FontWeight.Normal
                             )
                         }
@@ -203,20 +203,31 @@ fun AppNavigation() {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .clickable {
+                                scope.launch { drawerState.close() }
+                                navController.navigate(Screen.Settings.route) {
+                                    launchSingleTop = true
+                                }
+                            }
+                            .background(
+                                if (isRouteSelected(Screen.Settings.route)) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                                else Surface
+                            )
                             .padding(horizontal = 20.dp, vertical = 14.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
                             imageVector = Icons.Default.Settings,
                             contentDescription = "设置",
-                            tint = TextSecondary,
+                            tint = if (isRouteSelected(Screen.Settings.route)) MaterialTheme.colorScheme.primary else TextSecondary,
                             modifier = Modifier.size(22.dp)
                         )
                         Spacer(modifier = Modifier.width(16.dp))
                         Text(
                             text = "设置",
                             style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = if (isRouteSelected(Screen.Settings.route)) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                            fontWeight = if (isRouteSelected(Screen.Settings.route)) FontWeight.Medium else FontWeight.Normal
                         )
                     }
                 }
@@ -235,7 +246,7 @@ fun AppNavigation() {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 4.dp), // 调小菜单栏顶部间隙
+                            .padding(top = 4.dp),
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
                         bottomNavItems.forEach { item ->
@@ -248,23 +259,23 @@ fun AppNavigation() {
                                             launchSingleTop = true
                                         }
                                     }
-                                    .padding(top = 4.dp, bottom = 10.dp), // 减小顶部内边距，保持底部内边距
+                                    .padding(top = 4.dp, bottom = 10.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Icon(
                                     imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
                                     contentDescription = item.label,
-                                    tint = if (selected) Color.Black else Color.Black.copy(alpha = 0.6f),
+                                    tint = if (selected) MaterialTheme.colorScheme.primary else Color.Black.copy(alpha = 0.6f),
                                     modifier = Modifier.size(24.dp)
                                 )
-                                Spacer(modifier = Modifier.height(2.dp)) // 调小图标与文字之间的间距
+                                Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = item.label,
                                     style = MaterialTheme.typography.labelMedium.copy(
                                         fontSize = 12.sp,
                                         fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
                                     ),
-                                    color = if (selected) Color.Black else Color.Black.copy(alpha = 0.6f)
+                                    color = if (selected) MaterialTheme.colorScheme.primary else Color.Black.copy(alpha = 0.6f)
                                 )
                             }
                         }
@@ -341,6 +352,11 @@ fun AppNavigation() {
                 }
                 composable(Screen.AssetManage.route) {
                     AssetManageScreen(
+                        onNavigateBack = { navController.popBackStack() }
+                    )
+                }
+                composable(Screen.Settings.route) {
+                    SettingsScreen(
                         onNavigateBack = { navController.popBackStack() }
                     )
                 }

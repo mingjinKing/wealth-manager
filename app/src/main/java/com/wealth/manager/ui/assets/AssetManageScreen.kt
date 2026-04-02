@@ -25,7 +25,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.wealth.manager.data.entity.AssetEntity
 import com.wealth.manager.data.entity.AssetType
 import com.wealth.manager.ui.achievements.AchievementsViewModel
-import com.wealth.manager.ui.theme.Primary
 import com.wealth.manager.ui.theme.Surface
 import com.wealth.manager.ui.theme.TextSecondary
 import com.wealth.manager.ui.theme.Warning
@@ -140,13 +139,13 @@ fun AssetSummaryCard(totalAssets: Double, totalLiabilities: Double, isVisible: B
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Primary)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)
     ) {
         Column(modifier = Modifier.padding(24.dp)) {
-            Text("净资产 (计入部分)", color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelMedium)
+            Text("净资产 (计入部分)", color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f), style = MaterialTheme.typography.labelMedium)
             Text(
                 if (isVisible) "¥${String.format(Locale.getDefault(), "%.2f", totalAssets + totalLiabilities)}" else "****", 
-                color = Color.White, 
+                color = MaterialTheme.colorScheme.onPrimary, 
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Black
             )
@@ -155,12 +154,12 @@ fun AssetSummaryCard(totalAssets: Double, totalLiabilities: Double, isVisible: B
             
             Row(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("总资产", color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall)
-                    Text(if (isVisible) "¥${String.format(Locale.getDefault(), "%.2f", totalAssets)}" else "****", color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("总资产", color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall)
+                    Text(if (isVisible) "¥${String.format(Locale.getDefault(), "%.2f", totalAssets)}" else "****", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("总负债", color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall)
-                    Text(if (isVisible) "¥${String.format(Locale.getDefault(), "%.2f", totalLiabilities)}" else "****", color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("总负债", color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall)
+                    Text(if (isVisible) "¥${String.format(Locale.getDefault(), "%.2f", totalLiabilities)}" else "****", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
             }
         }

@@ -3,9 +3,10 @@ package com.wealth.manager.ui.theme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 
-private val LightColorScheme = lightColorScheme(
-    primary = Primary,
+fun getLightColorScheme(primaryColor: Color) = lightColorScheme(
+    primary = primaryColor,
     onPrimary = OnPrimary,
     background = Background,
     onBackground = OnBackground,
@@ -19,10 +20,11 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun WealthManagerTheme(
+    primaryColor: Color = Primary,
     content: @Composable () -> Unit
 ) {
     MaterialTheme(
-        colorScheme = LightColorScheme,
+        colorScheme = getLightColorScheme(primaryColor),
         typography = Typography,
         content = content
     )

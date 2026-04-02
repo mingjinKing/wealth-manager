@@ -51,7 +51,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.wealth.manager.ui.theme.Income
-import com.wealth.manager.ui.theme.Primary
 import com.wealth.manager.ui.theme.Surface
 import com.wealth.manager.ui.theme.TextSecondary
 import com.wealth.manager.ui.theme.Warning
@@ -347,7 +346,7 @@ fun MonthlyCategoryCard(item: CategorySummary) {
                         modifier = Modifier
                             .fillMaxWidth(item.percentage)
                             .fillMaxHeight()
-                            .background(Primary)
+                            .background(MaterialTheme.colorScheme.primary)
                     )
                 }
                 Spacer(modifier = Modifier.width(12.dp))
@@ -401,7 +400,7 @@ fun GlobalAnalysisCard(analysisPoints: List<String>) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Primary.copy(alpha = 0.05f))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f))
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
@@ -412,7 +411,7 @@ fun GlobalAnalysisCard(analysisPoints: List<String>) {
                 Text(
                     text = "AI 消费分析报告",
                     style = MaterialTheme.typography.titleMedium,
-                    color = Primary,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -427,7 +426,7 @@ fun GlobalAnalysisCard(analysisPoints: List<String>) {
                     Text(
                         text = "•",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Primary,
+                        color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(end = 8.dp)
                     )
                     Text(

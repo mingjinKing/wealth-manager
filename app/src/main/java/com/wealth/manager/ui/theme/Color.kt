@@ -2,8 +2,14 @@ package com.wealth.manager.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Primary gold accent
-val Primary = Color(0xFFffc880)
+// Theme Colors
+val ThemeGold = Color(0xFFffc880)
+val ThemeBlue = Color(0xFF4A90D9)
+val ThemePink = Color(0xFFF48FB1)
+val ThemePurple = Color(0xFF9575CD)
+
+// Primary gold accent (Default)
+val Primary = ThemeGold
 val PrimaryDark = Color(0xFF0c0c1f)
 
 // Light theme: subtle gray background, pure white cards/nav

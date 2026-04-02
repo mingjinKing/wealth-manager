@@ -70,7 +70,6 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.wealth.manager.data.entity.CategoryEntity
 import com.wealth.manager.ui.theme.Background
-import com.wealth.manager.ui.theme.Primary
 import com.wealth.manager.ui.theme.Surface
 import com.wealth.manager.ui.theme.TextSecondary
 import com.wealth.manager.ui.theme.Warning
@@ -252,7 +251,7 @@ fun AddExpenseScreen(
                     indicator = { tabPositions ->
                         TabRowDefaults.SecondaryIndicator(
                             Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                            color = Primary
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
                 ) {
@@ -311,7 +310,7 @@ fun AddExpenseScreen(
                                 modifier = Modifier
                                     .size(52.dp)
                                     .clip(CircleShape)
-                                    .background(if (isSelected) Primary else Surface),
+                                    .background(if (isSelected) MaterialTheme.colorScheme.primary else Surface),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(text = category.icon, fontSize = 24.sp)
@@ -320,7 +319,7 @@ fun AddExpenseScreen(
                             Text(
                                 text = category.name,
                                 style = MaterialTheme.typography.labelMedium,
-                                color = if (isSelected) Primary else MaterialTheme.colorScheme.onSurface,
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                 maxLines = 1,
                                 textAlign = TextAlign.Center
@@ -368,7 +367,7 @@ fun AddExpenseScreen(
                                     value = note,
                                     onValueChange = { if (it.length <= 50) note = it },
                                     textStyle = TextStyle(fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface),
-                                    cursorBrush = SolidColor(Primary),
+                                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                                     modifier = Modifier.fillMaxWidth(),
                                     singleLine = true
                                 )
@@ -520,7 +519,7 @@ private fun KeypadButton(
         modifier = modifier
             .height(49.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(if (isPrimary) Primary else Surface)
+            .background(if (isPrimary) MaterialTheme.colorScheme.primary else Surface)
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {

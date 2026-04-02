@@ -69,7 +69,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.wealth.manager.R
 import com.wealth.manager.ui.theme.Income
-import com.wealth.manager.ui.theme.Primary
 import com.wealth.manager.ui.theme.Surface
 import com.wealth.manager.ui.theme.TextSecondary
 import com.wealth.manager.ui.theme.Warning
@@ -139,8 +138,8 @@ fun DashboardScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { onNavigateToAdd(null) },
-                containerColor = Primary,
-                contentColor = Color.White,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = CircleShape
             ) {
                 Icon(imageVector = Icons.Default.Add, contentDescription = "添加记账")
@@ -239,7 +238,7 @@ fun DashboardScreen(
             if (state.isLoadingMore) {
                 item {
                     Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp, color = Primary)
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
@@ -450,7 +449,7 @@ fun DailyExpenseItem(
                 modifier = Modifier
                     .size(32.dp)
                     .clip(CircleShape)
-                    .background(Primary.copy(alpha = 0.15f)),
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -511,14 +510,14 @@ fun WowPreviewCard(wowPreview: WowPreview) {
                         text = "哇时刻",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Medium,
-                        color = Primary
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
                 if (wowPreview.isTriggered) {
                     Text(
                         text = "已触发",
                         style = MaterialTheme.typography.labelSmall,
-                        color = Primary
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
@@ -529,7 +528,7 @@ fun WowPreviewCard(wowPreview: WowPreview) {
                 text = "本周少花 ¥${NumberFormat.getNumberInstance(Locale.CHINA).format(wowPreview.savedAmount)}",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = Primary
+                color = MaterialTheme.colorScheme.primary
             )
 
             if (wowPreview.reason.isNotBlank()) {

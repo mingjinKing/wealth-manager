@@ -13,11 +13,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,7 +34,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.wealth.manager.ui.theme.Primary
 import com.wealth.manager.ui.theme.Surface
 import com.wealth.manager.ui.theme.TextSecondary
 import com.wealth.manager.ui.theme.Warning
@@ -127,7 +126,7 @@ fun AchievementsScreen(
                         currentInfo = "已支出：${if (state.isBudgetVisible) "¥" + formatAmount(spent) else "****"}",
                         subInfo = "可去算算账查看明细",
                         progress = budgetProgress.coerceAtMost(1f),
-                        progressColor = if (budgetProgress > 0.9f) Warning else Primary,
+                        progressColor = if (budgetProgress > 0.9f) Warning else MaterialTheme.colorScheme.primary,
                         isVisible = state.isBudgetVisible,
                         onToggleVisibility = { viewModel.toggleBudgetVisibility() },
                         onClick = { showBudgetSheet = true }
@@ -220,7 +219,7 @@ fun NetWorthHeader(netWorth: Double, isVisible: Boolean, onToggleVisibility: () 
             .fillMaxWidth()
             .clickable { onClick() },
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Primary)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)
     ) {
         Column(modifier = Modifier.padding(24.dp)) {
             Row(
@@ -228,30 +227,30 @@ fun NetWorthHeader(netWorth: Double, isVisible: Boolean, onToggleVisibility: () 
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "当前净资产", color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.labelMedium)
+                Text(text = "当前净资产", color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f), style = MaterialTheme.typography.labelMedium)
                 IconButton(onClick = { onToggleVisibility() }, modifier = Modifier.size(24.dp)) {
                     Icon(
                         imageVector = if (isVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
                         contentDescription = null,
-                        tint = Color.White.copy(alpha = 0.8f),
+                        tint = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
                         modifier = Modifier.size(18.dp)
                     )
                 }
             }
             Text(
                 text = if (isVisible) "¥${formatAmount(netWorth)}" else "****",
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onPrimary,
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Black
             )
             Spacer(modifier = Modifier.height(12.dp))
             Surface(
-                color = Color.White.copy(alpha = 0.2f),
+                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f),
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Text(
                     text = "查看资产详情 >",
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onPrimary,
                     style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                 )
@@ -262,6 +261,7 @@ fun NetWorthHeader(netWorth: Double, isVisible: Boolean, onToggleVisibility: () 
 
 @Composable
 fun TrendForecastCard(points: List<TrendPoint>, onShowHelp: () -> Unit) {
+    val primaryColor = MaterialTheme.colorScheme.primary
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -310,7 +310,7 @@ fun TrendForecastCard(points: List<TrendPoint>, onShowHelp: () -> Unit) {
 
             // 折线图绘制 (带坐标轴)
             Box(modifier = Modifier.fillMaxWidth().height(200.dp).padding(start = 40.dp, bottom = 20.dp)) {
-                TrendLineChart(points = points)
+                TrendLineChart(points = points, primaryColor = primaryColor)
             }
             
             Row(
@@ -323,7 +323,7 @@ fun TrendForecastCard(points: List<TrendPoint>, onShowHelp: () -> Unit) {
                     Text("期望", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.size(8.dp).background(Primary, CircleShape))
+                    Box(modifier = Modifier.size(8.dp).background(primaryColor, CircleShape))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("现状", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
                 }
@@ -333,7 +333,7 @@ fun TrendForecastCard(points: List<TrendPoint>, onShowHelp: () -> Unit) {
 }
 
 @Composable
-fun TrendLineChart(points: List<TrendPoint>) {
+fun TrendLineChart(points: List<TrendPoint>, primaryColor: Color) {
     if (points.isEmpty()) return
     
     val maxVal = (points.maxOf { it.expected + (it.actual ?: 0.0) } * 1.2).toFloat().coerceAtLeast(1f)
@@ -413,12 +413,12 @@ fun TrendLineChart(points: List<TrendPoint>) {
                 } else {
                     actualPath.lineTo(x, y)
                 }
-                drawCircle(color = Primary, radius = 4.dp.toPx(), center = Offset(x, y))
+                drawCircle(color = primaryColor, radius = 4.dp.toPx(), center = Offset(x, y))
             }
         }
         drawPath(
             path = actualPath,
-            color = Primary,
+            color = primaryColor,
             style = Stroke(width = 3.dp.toPx())
         )
     }
@@ -432,7 +432,7 @@ fun GoalCard(
     subInfo: String? = null,
     progress: Float,
     timeProgress: Float? = null,
-    progressColor: Color = Primary,
+    progressColor: Color = MaterialTheme.colorScheme.primary,
     isVisible: Boolean,
     onToggleVisibility: () -> Unit,
     onClick: () -> Unit
@@ -536,12 +536,21 @@ fun BudgetSettingSheet(
         Text("预算管理设定", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
         
-        TabRow(selectedTabIndex = selectedTab, containerColor = Color.Transparent) {
+        TabRow(
+            selectedTabIndex = selectedTab,
+            containerColor = Color.Transparent,
+            indicator = { tabPositions ->
+                TabRowDefaults.SecondaryIndicator(
+                    Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        ) {
             Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }) {
-                Text("月预算", modifier = Modifier.padding(12.dp))
+                Text("月预算", modifier = Modifier.padding(12.dp), color = if (selectedTab == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
             }
             Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }) {
-                Text("周预算", modifier = Modifier.padding(12.dp))
+                Text("周预算", modifier = Modifier.padding(12.dp), color = if (selectedTab == 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
             }
         }
         
@@ -613,7 +622,7 @@ fun AssetGoalSettingSheet(
                 modifier = Modifier.padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = Primary)
+                Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text("达成日期目标", style = MaterialTheme.typography.labelSmall, color = TextSecondary)

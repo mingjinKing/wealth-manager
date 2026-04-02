@@ -58,7 +58,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.wealth.manager.data.entity.CategoryEntity
-import com.wealth.manager.ui.theme.Primary
 import com.wealth.manager.ui.theme.Surface
 import com.wealth.manager.ui.theme.TextSecondary
 import com.wealth.manager.ui.theme.Warning
@@ -131,7 +130,7 @@ fun CategoryManageScreen(
                     indicator = { tabPositions ->
                         TabRowDefaults.SecondaryIndicator(
                             Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                            color = blackColor
+                            color = MaterialTheme.colorScheme.primary
                         )
                     },
                     divider = {}
@@ -145,7 +144,7 @@ fun CategoryManageScreen(
                                     text = title,
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal,
-                                    color = blackColor
+                                    color = if (selectedTabIndex == index) MaterialTheme.colorScheme.primary else blackColor
                                 )
                             }
                         )
@@ -217,8 +216,8 @@ fun CategoryManageScreen(
                             onClick = { categoryType = "EXPENSE" },
                             label = { Text("支出") },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = blackColor.copy(alpha = 0.1f),
-                                selectedLabelColor = blackColor,
+                                selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                selectedLabelColor = MaterialTheme.colorScheme.primary,
                                 labelColor = blackColor
                             )
                         )
@@ -227,8 +226,8 @@ fun CategoryManageScreen(
                             onClick = { categoryType = "INCOME" },
                             label = { Text("收入") },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = blackColor.copy(alpha = 0.1f),
-                                selectedLabelColor = blackColor,
+                                selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                selectedLabelColor = MaterialTheme.colorScheme.primary,
                                 labelColor = blackColor
                             )
                         )
@@ -258,7 +257,7 @@ fun CategoryManageScreen(
                                     .size(52.dp)
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(
-                                        if (emoji == categoryEmoji) blackColor.copy(alpha = 0.1f)
+                                        if (emoji == categoryEmoji) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                                         else Surface
                                     )
                                     .clickable { categoryEmoji = emoji },
@@ -283,7 +282,7 @@ fun CategoryManageScreen(
                         }
                     }
                 ) {
-                    Text(if (editingCategory == null) "添加" else "保存", color = blackColor)
+                    Text(if (editingCategory == null) "添加" else "保存", color = MaterialTheme.colorScheme.primary)
                 }
             },
             dismissButton = {
@@ -353,7 +352,7 @@ private fun CategoryItem(
                     modifier = Modifier
                         .size(36.dp)
                         .clip(CircleShape)
-                        .background(color.copy(alpha = 0.15f)),
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(text = category.icon, style = MaterialTheme.typography.bodyMedium)
