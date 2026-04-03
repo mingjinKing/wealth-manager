@@ -7,10 +7,10 @@ import com.wealth.manager.agent.WangcaiAgent
 import com.wealth.manager.data.dao.CategoryDao
 import com.wealth.manager.data.dao.ExpenseDao
 import com.wealth.manager.data.entity.ExpenseEntity
-import com.wealth.manager.rules.FrequencyRule
 import com.wealth.manager.rules.Insight
 import com.wealth.manager.rules.ScaleRule
 import com.wealth.manager.rules.StructureRule
+import com.wealth.manager.rules.FrequencyRule
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -47,17 +47,14 @@ class InsightsViewModel @Inject constructor(
 
             val expenses = expenseDao.getExpensesByDateRange(startTime, endTime).first()
             val categories = categoryDao.getAllCategories().first()
-
             val categoryMap = categories.associateBy { it.id }
 
-            // 区分收入和支出
             val expenseRecords = expenses.filter { categoryMap[it.categoryId]?.type == "EXPENSE" }
             val incomeRecords = expenses.filter { categoryMap[it.categoryId]?.type == "INCOME" }
 
             val totalExpense = expenseRecords.sumOf { it.amount }
             val totalIncome = incomeRecords.sumOf { it.amount }
 
-            // 仅对支出进行分类统计
             val summaryItems = expenseRecords
                 .groupBy { it.categoryId }
                 .mapNotNull { (categoryId, categoryExpenses) ->
@@ -88,73 +85,62 @@ class InsightsViewModel @Inject constructor(
     }
 
     /**
-     * 触发 AI 全面复盘
-     *
-     * 调用旺财 Agent，基于规则引擎数据和用户上下文生成个性化分析报告
+     * 触发 AI 全面复盘（流式输出原始 Markdown）
      */
     fun triggerAiAnalysis() {
         viewModelScope.launch {
+            // 立即重置 AI 状态
             _state.value = _state.value.copy(
                 isAiAnalyzing = true,
-                aiAnalysisResult = null,
+                aiAnalysisResult = "", 
                 aiAnalysisError = null
             )
 
             try {
-                // 1. 刷新 App 数据到上下文
+                wangcaiAgent.clearContext()
                 appInitializer.refreshAppData()
+                
+                val systemContext = buildSystemContextForAi()
 
-                // 2. 构建系统上下文（附加数据摘要）
-                val systemContext = buildSystemContext()
-
-                // 3. 调用旺财 Agent
-                val result = wangcaiAgent.think(
-                    userMessage = "请分析我当前的消费情况，给我一份全面的财务健康报告。",
+                // thinkStream 返回 Flow<String>，delta 包含原始 Markdown
+                wangcaiAgent.thinkStream(
+                    userMessage = "请根据我最近31天的真实账单，为我生成一份专业的财务健康评估报告。",
                     systemContext = systemContext
-                )
+                ).collect { delta ->
+                    val current = _state.value.aiAnalysisResult ?: ""
+                    // 保留 Markdown 标记，由 UI 层的渲染器处理
+                    _state.value = _state.value.copy(
+                        aiAnalysisResult = current + delta
+                    )
+                }
 
-                // 4. 记录分析
                 appInitializer.recordAnalysis()
-
-                _state.value = _state.value.copy(
-                    isAiAnalyzing = false,
-                    aiAnalysisResult = result
-                )
+                _state.value = _state.value.copy(isAiAnalyzing = false)
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     isAiAnalyzing = false,
-                    aiAnalysisError = e.message ?: "分析失败，请重试"
+                    aiAnalysisError = e.message ?: "旺财分析中断了，请重试"
                 )
             }
         }
     }
 
-    private fun buildSystemContext(): String {
-        val s = state.value
-        val summaries = s.summaryItems
+    private suspend fun buildSystemContextForAi(): String {
+        val calendar = Calendar.getInstance()
+        val end = calendar.timeInMillis
+        calendar.add(Calendar.DAY_OF_YEAR, -30) // 确保覆盖 31 天，包含 3 月 3 日
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        val start = calendar.timeInMillis
 
-        val topCategory = summaries.firstOrNull()?.let {
-            "${it.categoryEmoji} ${it.categoryName} ¥${String.format("%.0f", it.amount)}（${(it.percentage * 100).toInt()}%）"
-        } ?: "无"
+        val expenses = expenseDao.getExpensesByDateRange(start, end).first()
+        val total = expenses.sumOf { it.amount }
 
-        val top3Categories = summaries.take(3).joinToString("、") {
-            "${it.categoryEmoji}${it.categoryName}"
-        }
-
-        return buildString {
-            appendLine("=== 当前周期数据 ===")
-            appendLine("时间范围：${formatTimeRange(s.startTime, s.endTime)}")
-            appendLine("总支出：¥${String.format("%.0f", s.totalAmount)}")
-            appendLine("总收入：¥${String.format("%.0f", s.totalIncome)}")
-            appendLine("支出笔数：${summaries.sumOf { it.items.size }}")
-            appendLine()
-            appendLine("=== 分类概况 ===")
-            appendLine("最大分类：$topCategory")
-            appendLine("Top3：$top3Categories")
-            appendLine()
-            appendLine("=== 用户上下文 ===")
-            appendLine("(请从 context 工具读取用户预算、目标、偏好等上下文信息)")
-        }
+        return """
+            当前分析口径：${formatTimeRange(start, end)} (共 31 天)
+            数据库精确总支出：¥${String.format("%.2f", total)}
+            指令：请以 Markdown 格式输出，包含加粗总结和分点建议。
+        """.trimIndent()
     }
 
     private fun formatTimeRange(start: Long, end: Long): String {
@@ -164,23 +150,12 @@ class InsightsViewModel @Inject constructor(
 
     private fun generateGlobalAnalysis(summaries: List<CategorySummary>, total: Double): List<Insight> {
         val insights = mutableListOf<Insight>()
-
-        // 1. 规模分析（ScaleRule）
         insights.add(ScaleRule.buildInsight(total))
-
-        // 2. 结构偏向（StructureRule）
         summaries.firstOrNull()?.let { top ->
             if (StructureRule.isBiased(top.percentage)) {
                 insights.add(StructureRule.buildInsight(top.categoryName, top.percentage))
             }
         }
-
-        // 3. 高频分析（FrequencyRule）
-        val totalCount = summaries.sumOf { it.items.size }
-        if (FrequencyRule.isHighFrequency(totalCount)) {
-            insights.add(FrequencyRule.buildInsight(totalCount))
-        }
-
         return insights
     }
 
@@ -190,15 +165,12 @@ class InsightsViewModel @Inject constructor(
         calendar.set(Calendar.HOUR_OF_DAY, 0)
         calendar.set(Calendar.MINUTE, 0)
         calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
         val monthStart = calendar.timeInMillis
-
         calendar.set(Calendar.DAY_OF_MONTH, calendar.getActualMaximum(Calendar.DAY_OF_MONTH))
         calendar.set(Calendar.HOUR_OF_DAY, 23)
         calendar.set(Calendar.MINUTE, 59)
         calendar.set(Calendar.SECOND, 59)
         val monthEnd = calendar.timeInMillis
-
         return Pair(monthStart, monthEnd)
     }
 }
@@ -212,7 +184,6 @@ data class InsightsState(
     val startTime: Long = 0L,
     val endTime: Long = 0L,
     val isDefaultMonth: Boolean = true,
-    // AI 分析相关
     val isAiAnalyzing: Boolean = false,
     val aiAnalysisResult: String? = null,
     val aiAnalysisError: String? = null
@@ -222,6 +193,6 @@ data class CategorySummary(
     val categoryEmoji: String,
     val categoryName: String,
     val amount: Double,
-    val percentage: Float, // 0.0 to 1.0
+    val percentage: Float,
     val items: List<ExpenseEntity> = emptyList()
 )

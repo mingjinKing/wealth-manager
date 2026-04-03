@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -37,6 +38,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,10 +48,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.wealth.manager.data.entity.ExpenseEntity
 import com.wealth.manager.rules.Insight
 import com.wealth.manager.ui.theme.Income
 import com.wealth.manager.ui.theme.Surface
@@ -69,8 +76,16 @@ fun InsightsScreen(
     val state by viewModel.state.collectAsState()
     var showDateRangePicker by remember { mutableStateOf(false) }
     val dateRangePickerState = rememberDateRangePickerState()
+    val scrollState = rememberLazyListState()
 
     val dateFormatter = remember { SimpleDateFormat("MM月dd日", Locale.CHINA) }
+
+    // 流式输出时，如果列表在底部，自动向上滚动
+    LaunchedEffect(state.aiAnalysisResult) {
+        if (state.isAiAnalyzing && !state.aiAnalysisResult.isNullOrEmpty()) {
+            scrollState.animateScrollToItem(scrollState.layoutInfo.totalItemsCount - 1)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -91,8 +106,7 @@ fun InsightsScreen(
                     }
                 },
                 actions = {
-                    // AI 全面复盘按钮
-                    if (!state.isAiAnalyzing && state.aiAnalysisResult == null) {
+                    if (!state.isAiAnalyzing) {
                         TextButton(onClick = { viewModel.triggerAiAnalysis() }) {
                             Text(
                                 text = "✨ AI 复盘",
@@ -124,7 +138,7 @@ fun InsightsScreen(
                     .padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = "分析中...", color = TextSecondary)
+                Text(text = "数据加载中...", color = TextSecondary)
             }
         } else if (state.summaryItems.isEmpty() && state.totalIncome <= 0) {
             Box(
@@ -141,47 +155,17 @@ fun InsightsScreen(
                         style = MaterialTheme.typography.bodyLarge,
                         color = TextSecondary
                     )
-                    if (!state.isDefaultMonth) {
-                        TextButton(onClick = { 
-                            val calendar = Calendar.getInstance()
-                            calendar.set(Calendar.DAY_OF_MONTH, 1)
-                            calendar.set(Calendar.HOUR_OF_DAY, 0)
-                            calendar.set(Calendar.MINUTE, 0)
-                            calendar.set(Calendar.SECOND, 0)
-                            calendar.set(Calendar.MILLISECOND, 0)
-                            val start = calendar.timeInMillis
-                            
-                            calendar.set(Calendar.DAY_OF_MONTH, calendar.getActualMaximum(Calendar.DAY_OF_MONTH))
-                            calendar.set(Calendar.HOUR_OF_DAY, 23)
-                            calendar.set(Calendar.MINUTE, 59)
-                            calendar.set(Calendar.SECOND, 59)
-                            calendar.set(Calendar.MILLISECOND, 999)
-                            val end = calendar.timeInMillis
-                            
-                            viewModel.loadInsights(start, end, true) 
-                        }) {
-                            Text("返回本月", color = Color.Black)
-                        }
-                    }
                 }
             }
         } else {
             LazyColumn(
+                state = scrollState,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // 0. AI 分析结果（如果有）
-                item {
-                    when {
-                        state.isAiAnalyzing -> AiAnalysisLoadingCard()
-                        state.aiAnalysisError != null -> AiAnalysisErrorCard(error = state.aiAnalysisError!!)
-                        state.aiAnalysisResult != null -> AiAnalysisResultCard(result = state.aiAnalysisResult!!)
-                    }
-                }
-
                 item {
                     Column(
                         modifier = Modifier
@@ -189,48 +173,23 @@ fun InsightsScreen(
                             .padding(vertical = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        if (!state.isDefaultMonth) {
-                            Text(
-                                text = "${dateFormatter.format(Date(state.startTime))} - ${dateFormatter.format(Date(state.endTime))}",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = Color.Black,
-                                modifier = Modifier.padding(bottom = 4.dp),
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
+                        Text(
+                            text = if (state.isDefaultMonth) "本月总计" else "期间总计",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = TextSecondary
+                        )
                         
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = if (state.isDefaultMonth) "本月总支出" else "期间总支出",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = TextSecondary
-                            )
+                            Text(text = "总支出", style = MaterialTheme.typography.bodyLarge, color = TextSecondary)
                             Text(
                                 text = "¥${String.format(Locale.CHINA, "%.2f", state.totalAmount)}",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = Warning
-                            )
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = if (state.isDefaultMonth) "本月总收入" else "期间总收入",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = TextSecondary
-                            )
-                            Text(
-                                text = "¥${String.format(Locale.CHINA, "%.2f", state.totalIncome)}",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = Income
                             )
                         }
                     }
@@ -239,10 +198,10 @@ fun InsightsScreen(
                 // 1. 分类占比
                 item {
                     Text(
-                        text = if (state.isDefaultMonth) "消费分类占比" else "期间分类占比",
+                        text = "消费分类占比",
                         style = MaterialTheme.typography.labelLarge,
                         color = TextSecondary,
-                        modifier = Modifier.padding(bottom = 8.dp)
+                        modifier = Modifier.padding(bottom = 4.dp)
                     )
                 }
 
@@ -250,20 +209,29 @@ fun InsightsScreen(
                     MonthlyCategoryCard(item = item)
                 }
 
-                // 2. AI 洞察
-                if (state.globalAnalysis.isNotEmpty()) {
+                // 2. AI 分析报告 (置底)
+                if (state.isAiAnalyzing || !state.aiAnalysisResult.isNullOrEmpty() || state.aiAnalysisError != null) {
                     item {
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = if (state.isDefaultMonth) "AI 全局洞察" else "AI 期间分析",
+                            text = "旺财智能分析报告",
                             style = MaterialTheme.typography.labelLarge,
-                            color = TextSecondary,
-                            modifier = Modifier.padding(bottom = 8.dp)
+                            color = TextSecondary
                         )
                     }
 
                     item {
-                        GlobalAnalysisCard(insights = state.globalAnalysis)
+                        when {
+                            state.isAiAnalyzing && (state.aiAnalysisResult ?: "").isEmpty() -> {
+                                AiAnalysisLoadingCard()
+                            }
+                            state.aiAnalysisError != null -> {
+                                AiAnalysisErrorCard(error = state.aiAnalysisError!!)
+                            }
+                            else -> {
+                                AiAnalysisResultCard(result = state.aiAnalysisResult ?: "")
+                            }
+                        }
                     }
                 }
 
@@ -281,13 +249,11 @@ fun InsightsScreen(
                         val start = dateRangePickerState.selectedStartDateMillis
                         val end = dateRangePickerState.selectedEndDateMillis
                         if (start != null && end != null) {
-                            // 修正结束时间为当天的 23:59:59
                             val calendar = Calendar.getInstance()
                             calendar.timeInMillis = end
                             calendar.set(Calendar.HOUR_OF_DAY, 23)
                             calendar.set(Calendar.MINUTE, 59)
                             calendar.set(Calendar.SECOND, 59)
-                            calendar.set(Calendar.MILLISECOND, 999)
                             viewModel.loadInsights(start, calendar.timeInMillis, false)
                         }
                         showDateRangePicker = false
@@ -305,8 +271,6 @@ fun InsightsScreen(
             DateRangePicker(
                 state = dateRangePickerState,
                 modifier = Modifier.height(480.dp),
-                title = { Text(text = "选择统计期间", modifier = Modifier.padding(16.dp)) },
-                headline = { Text(text = "筛选任意时段", modifier = Modifier.padding(horizontal = 16.dp)) },
                 showModeToggle = false
             )
         }
@@ -325,9 +289,7 @@ fun MonthlyCategoryCard(item: CategorySummary) {
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Surface)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -352,10 +314,7 @@ fun MonthlyCategoryCard(item: CategorySummary) {
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -374,40 +333,25 @@ fun MonthlyCategoryCard(item: CategorySummary) {
                 Text(
                     text = "${(item.percentage * 100).toInt()}%",
                     style = MaterialTheme.typography.bodySmall,
-                    color = TextSecondary,
-                    modifier = Modifier.width(32.dp)
+                    color = TextSecondary
                 )
             }
 
             AnimatedVisibility(visible = expanded) {
                 Column(modifier = Modifier.padding(top = 16.dp)) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-                    Spacer(modifier = Modifier.height(8.dp))
                     item.items.forEach { expense ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = if (expense.note.isNotBlank()) expense.note else "无备注",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = dateFormatter.format(Date(expense.date)),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = TextSecondary
-                                )
+                                Text(text = expense.note.ifBlank { "无备注" }, style = MaterialTheme.typography.bodyMedium)
+                                Text(text = dateFormatter.format(Date(expense.date)), style = MaterialTheme.typography.labelSmall, color = TextSecondary)
                             }
-                            Text(
-                                text = "¥${String.format(Locale.CHINA, "%.2f", expense.amount)}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium
-                            )
+                            Text(text = "¥${String.format(Locale.CHINA, "%.2f", expense.amount)}", style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                 }
@@ -417,22 +361,18 @@ fun MonthlyCategoryCard(item: CategorySummary) {
 }
 
 @Composable
-fun GlobalAnalysisCard(insights: List<Insight>) {
-    if (insights.isEmpty()) return
-
+private fun AiAnalysisResultCard(result: String) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f))
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(text = "✨", fontSize = 18.sp)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "AI 消费分析报告",
+                    text = "旺财复盘中",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
@@ -440,37 +380,19 @@ fun GlobalAnalysisCard(insights: List<Insight>) {
             }
 
             Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            insights.forEach { insight ->
-                Row(
-                    modifier = Modifier.padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Text(
-                        text = "•",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(end = 8.dp)
-                    )
-                    Text(
-                        text = insight.message,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        lineHeight = 22.sp
-                    )
-                }
-            }
+            Text(
+                text = renderMarkdown(result),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 24.sp
+            )
         }
     }
 }
 
-fun formatAmount(amount: Double): String {
-    return String.format(Locale.getDefault(), "%,.2f", amount)
-}
-
-/**
- * AI 分析加载中卡片
- */
 @Composable
 private fun AiAnalysisLoadingCard() {
     Card(
@@ -479,101 +401,61 @@ private fun AiAnalysisLoadingCard() {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f))
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
+            modifier = Modifier.fillMaxWidth().padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(text = "✨", fontSize = 28.sp)
+            Text(text = "✨", fontSize = 32.sp)
             Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = "旺财正在分析中...",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "基于你的消费数据和上下文，生成个性化报告",
-                style = MaterialTheme.typography.bodySmall,
-                color = TextSecondary
-            )
+            Text(text = "旺财正在努力思考...", color = MaterialTheme.colorScheme.primary)
         }
     }
 }
 
-/**
- * AI 分析错误卡片
- */
 @Composable
 private fun AiAnalysisErrorCard(error: String) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.08f))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.05f))
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = "⚠️", fontSize = 18.sp)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "AI 分析失败",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.error,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = error,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+        Text(
+            text = "⚠️ $error",
+            modifier = Modifier.padding(16.dp),
+            color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.bodyMedium
+        )
     }
 }
 
-/**
- * AI 分析结果卡片
- */
-@Composable
-private fun AiAnalysisResultCard(result: String) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f))
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = "✨", fontSize = 18.sp)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "旺财分析报告",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
-                )
+private fun renderMarkdown(text: String): AnnotatedString {
+    return buildAnnotatedString {
+        val lines = text.split("\n")
+        lines.forEachIndexed { index, line ->
+            when {
+                line.trim().startsWith("### ") -> {
+                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, fontSize = 18.sp)) {
+                        append(line.trim().substring(4))
+                    }
+                }
+                line.trim().startsWith("## ") -> {
+                    withStyle(style = SpanStyle(fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)) {
+                        append(line.trim().substring(3))
+                    }
+                }
+                else -> {
+                    val boldRegex = Regex("\\*\\*(.*?)\\*\\*")
+                    var lastIndex = 0
+                    boldRegex.findAll(line).forEach { match ->
+                        append(line.substring(lastIndex, match.range.first))
+                        withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                            append(match.groupValues[1])
+                        }
+                        lastIndex = match.range.last + 1
+                    }
+                    append(line.substring(lastIndex))
+                }
             }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = result,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                lineHeight = 22.sp
-            )
+            if (index < lines.size - 1) append("\n")
         }
     }
 }
