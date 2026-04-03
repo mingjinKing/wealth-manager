@@ -50,6 +50,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.wealth.manager.rules.Insight
 import com.wealth.manager.ui.theme.Income
 import com.wealth.manager.ui.theme.Surface
 import com.wealth.manager.ui.theme.TextSecondary
@@ -242,7 +243,7 @@ fun InsightsScreen(
                     }
 
                     item {
-                        GlobalAnalysisCard(analysisPoints = state.globalAnalysis)
+                        GlobalAnalysisCard(insights = state.globalAnalysis)
                     }
                 }
 
@@ -396,7 +397,9 @@ fun MonthlyCategoryCard(item: CategorySummary) {
 }
 
 @Composable
-fun GlobalAnalysisCard(analysisPoints: List<String>) {
+fun GlobalAnalysisCard(insights: List<Insight>) {
+    if (insights.isEmpty()) return
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -415,10 +418,10 @@ fun GlobalAnalysisCard(analysisPoints: List<String>) {
                     fontWeight = FontWeight.Bold
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(12.dp))
-            
-            analysisPoints.forEach { point ->
+
+            insights.forEach { insight ->
                 Row(
                     modifier = Modifier.padding(vertical = 4.dp),
                     verticalAlignment = Alignment.Top
@@ -430,7 +433,7 @@ fun GlobalAnalysisCard(analysisPoints: List<String>) {
                         modifier = Modifier.padding(end = 8.dp)
                     )
                     Text(
-                        text = point,
+                        text = insight.message,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         lineHeight = 22.sp

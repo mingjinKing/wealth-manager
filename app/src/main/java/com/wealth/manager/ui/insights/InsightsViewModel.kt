@@ -5,6 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.wealth.manager.data.dao.CategoryDao
 import com.wealth.manager.data.dao.ExpenseDao
 import com.wealth.manager.data.entity.ExpenseEntity
+import com.wealth.manager.rules.FrequencyRule
+import com.wealth.manager.rules.Insight
+import com.wealth.manager.rules.ScaleRule
+import com.wealth.manager.rules.StructureRule
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -79,30 +83,26 @@ class InsightsViewModel @Inject constructor(
         }
     }
 
-    private fun generateGlobalAnalysis(summaries: List<CategorySummary>, total: Double): List<String> {
-        val analysis = mutableListOf<String>()
-        
-        // 1. 总体规模分析
-        if (total > 5000) {
-            analysis.add("该期间总支出 ¥${String.format("%.0f", total)}，规模较大，建议审查高额单项。")
-        } else {
-            analysis.add("该期间消费控制在 ¥${String.format("%.0f", total)}，整体预算管理良好。")
-        }
+    private fun generateGlobalAnalysis(summaries: List<CategorySummary>, total: Double): List<Insight> {
+        val insights = mutableListOf<Insight>()
 
-        // 2. 结构分析
+        // 1. 规模分析（ScaleRule）
+        insights.add(ScaleRule.buildInsight(total))
+
+        // 2. 结构偏向（StructureRule）
         summaries.firstOrNull()?.let { top ->
-            if (top.percentage > 0.4) {
-                analysis.add("支出结构偏向明显，${top.categoryName}占比达${(top.percentage * 100).toInt()}%，存在优化空间。")
+            if (StructureRule.isBiased(top.percentage)) {
+                insights.add(StructureRule.buildInsight(top.categoryName, top.percentage))
             }
         }
 
-        // 3. 频率分析
+        // 3. 高频分析（FrequencyRule）
         val totalCount = summaries.sumOf { it.items.size }
-        if (totalCount > 50) {
-            analysis.add("该期间消费频率较高（共${totalCount}笔），建议减少小额琐碎支出。")
+        if (FrequencyRule.isHighFrequency(totalCount)) {
+            insights.add(FrequencyRule.buildInsight(totalCount))
         }
 
-        return analysis
+        return insights
     }
 
     private fun getCurrentMonthRange(): Pair<Long, Long> {
@@ -129,7 +129,7 @@ data class InsightsState(
     val totalAmount: Double = 0.0,
     val totalIncome: Double = 0.0,
     val summaryItems: List<CategorySummary> = emptyList(),
-    val globalAnalysis: List<String> = emptyList(),
+    val globalAnalysis: List<Insight> = emptyList(),
     val startTime: Long = 0L,
     val endTime: Long = 0L,
     val isDefaultMonth: Boolean = true
