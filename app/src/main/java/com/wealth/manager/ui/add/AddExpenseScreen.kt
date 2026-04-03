@@ -13,9 +13,12 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -61,6 +64,7 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -170,6 +174,14 @@ fun AddExpenseScreen(
 
     val isEditMode = expenseToEdit != null
     val focusManager = LocalFocusManager.current
+
+    // 动态键盘高度补偿（防止键盘遮挡底部输入区）
+    val density = LocalDensity.current
+    val imeHeightPx = WindowInsets.ime.getBottom(density)
+    val imeHeight = (imeHeightPx / density.density).dp
+    // 安全阈值：底部输入区域（备注+金额+键盘）的高度约 268dp
+    val safeBottomHeight = 268.dp
+    val extraBottomPadding = if (imeHeight > safeBottomHeight) imeHeight - safeBottomHeight else 0.dp
 
     // 计算逻辑函数
     val performCalculation = {
@@ -282,6 +294,7 @@ fun AddExpenseScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .navigationBarsPadding()
+                    .imePadding()
             ) {
                 // 类别选择区域 - 升级为 4 列网格布局
                 LazyVerticalGrid(
@@ -424,7 +437,7 @@ fun AddExpenseScreen(
                                 if (pendingOperator != null) {
                                     performCalculation()
                                 }
-                                
+
                                 val finalAmount = amount.toDoubleOrNull() ?: 0.0
                                 if (finalAmount > 0 && selectedCategoryId != null) {
                                     if (isEditMode && expenseToEdit != null) {
@@ -439,6 +452,8 @@ fun AddExpenseScreen(
                                 }
                             }
                         )
+                        // 动态底部补偿：超高键盘时额外增加底部间距，确保输入区不被遮挡
+                        Spacer(modifier = Modifier.height(16.dp + extraBottomPadding))
                     }
                 }
             }
