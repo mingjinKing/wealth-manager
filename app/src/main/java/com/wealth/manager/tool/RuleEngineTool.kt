@@ -14,7 +14,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * 规则引擎工具 - 终极稳定版 (对齐 UI，彻底杜绝 NaN)
+ * 规则引擎工具 - 增强版 (支持指定日期范围)
  */
 @Singleton
 class RuleEngineTool @Inject constructor(
@@ -25,7 +25,7 @@ class RuleEngineTool @Inject constructor(
     override val name = "rule_engine"
     override val description = """
         核心财务数据工具。
-        - get_summary: 获取最近30个自然日的账单统计。
+        - get_summary: 获取指定范围（或默认最近30天）的账单统计。
         - scale_analysis: 消费规模分析。
         - structure_analysis: 消费结构分析。
     """.trimIndent()
@@ -38,6 +38,14 @@ class RuleEngineTool @Inject constructor(
                     "type": "string",
                     "enum": ["get_summary", "scale_analysis", "structure_analysis", "frequency_analysis"],
                     "description": "操作类型"
+                },
+                "startTime": {
+                    "type": "integer",
+                    "description": "开始时间戳（毫秒），可选"
+                },
+                "endTime": {
+                    "type": "integer",
+                    "description": "结束时间戳（毫秒），可选"
                 },
                 "data": {
                     "type": "object",
@@ -53,12 +61,15 @@ class RuleEngineTool @Inject constructor(
             val json = JSONObject(arguments)
             val operation = json.getString("operation")
             val data = json.optJSONObject("data")
+            
+            val startTime = if (json.has("startTime")) json.getLong("startTime") else null
+            val endTime = if (json.has("endTime")) json.getLong("endTime") else null
 
             val result = when (operation) {
-                "get_summary" -> getRecentSummary()
-                "scale_analysis" -> scaleAnalysis(data)
-                "structure_analysis" -> structureAnalysis(data)
-                "frequency_analysis" -> frequencyAnalysis(data)
+                "get_summary" -> getSummary(startTime, endTime)
+                "scale_analysis" -> scaleAnalysis(data, startTime, endTime)
+                "structure_analysis" -> structureAnalysis(data, startTime, endTime)
+                "frequency_analysis" -> frequencyAnalysis(data, startTime, endTime)
                 else -> errorResult("Unknown operation: $operation")
             }
 
@@ -68,19 +79,27 @@ class RuleEngineTool @Inject constructor(
         }
     }
 
-    private fun getRecentSummary(): JSONObject {
-        val calendar = Calendar.getInstance()
-        calendar.set(Calendar.HOUR_OF_DAY, 23)
-        calendar.set(Calendar.MINUTE, 59)
-        calendar.set(Calendar.SECOND, 59)
-        val end = calendar.timeInMillis
+    private fun getSummary(customStart: Long?, customEnd: Long?): JSONObject {
+        val start: Long
+        val end: Long
 
-        calendar.add(Calendar.DAY_OF_YEAR, -29)
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
-        val start = calendar.timeInMillis
+        if (customStart != null && customEnd != null) {
+            start = customStart
+            end = customEnd
+        } else {
+            val calendar = Calendar.getInstance()
+            calendar.set(Calendar.HOUR_OF_DAY, 23)
+            calendar.set(Calendar.MINUTE, 59)
+            calendar.set(Calendar.SECOND, 59)
+            end = calendar.timeInMillis
+
+            calendar.add(Calendar.DAY_OF_YEAR, -29)
+            calendar.set(Calendar.HOUR_OF_DAY, 0)
+            calendar.set(Calendar.MINUTE, 0)
+            calendar.set(Calendar.SECOND, 0)
+            calendar.set(Calendar.MILLISECOND, 0)
+            start = calendar.timeInMillis
+        }
 
         val (expenses, categories) = runBlocking {
             val ex = expenseDao.getExpensesByDateRange(start, end).first()
@@ -98,7 +117,7 @@ class RuleEngineTool @Inject constructor(
             .sortedByDescending { it.second }
 
         val categoryArray = JSONArray()
-        categoryStats.take(8).forEach { (catId, amount) ->
+        categoryStats.take(10).forEach { (catId, amount) ->
             val catObj = JSONObject()
             catObj.put("category", catNameMap[catId] ?: "未知($catId)")
             catObj.put("amount", amount)
@@ -108,7 +127,7 @@ class RuleEngineTool @Inject constructor(
         }
 
         val res = JSONObject()
-        res.put("period", "last_30_days_aligned")
+        res.put("period_desc", if (customStart != null) "custom_range" else "last_30_days")
         res.put("total_expense", total)
         res.put("transaction_count", expenses.size)
         res.put("top_categories", categoryArray)
@@ -116,18 +135,18 @@ class RuleEngineTool @Inject constructor(
         return res
     }
 
-    private fun scaleAnalysis(data: JSONObject?): JSONObject {
+    private fun scaleAnalysis(data: JSONObject?, start: Long?, end: Long?): JSONObject {
         val valIn = data?.optDouble("total", Double.NaN) ?: Double.NaN
-        val total = if (valIn.isNaN()) getSummaryTotal() else valIn
+        val total = if (valIn.isNaN()) getSummaryTotal(start, end) else valIn
         return insightToJson(ScaleRule.buildInsight(if (total.isNaN()) 0.0 else total))
     }
 
-    private fun structureAnalysis(data: JSONObject?): JSONObject {
+    private fun structureAnalysis(data: JSONObject?, start: Long?, end: Long?): JSONObject {
         var name = data?.optString("topCategoryName", "") ?: ""
         var percentage = data?.optDouble("topPercentage", Double.NaN) ?: Double.NaN
 
         if (name.isEmpty() || percentage.isNaN()) {
-            val summary = getRecentSummary()
+            val summary = getSummary(start, end)
             val tops = summary.optJSONArray("top_categories")
             if (tops != null && tops.length() > 0) {
                 val first = tops.getJSONObject(0)
@@ -151,18 +170,18 @@ class RuleEngineTool @Inject constructor(
         return insightToJson(insight)
     }
 
-    private fun frequencyAnalysis(data: JSONObject?): JSONObject {
+    private fun frequencyAnalysis(data: JSONObject?, start: Long?, end: Long?): JSONObject {
         val countIn = data?.optInt("totalCount", -1) ?: -1
-        val count = if (countIn == -1) getSummaryCount() else countIn
+        val count = if (countIn == -1) getSummaryCount(start, end) else countIn
         return insightToJson(FrequencyRule.buildInsight(count))
     }
 
-    private fun getSummaryTotal(): Double {
-        val t = getRecentSummary().optDouble("total_expense", 0.0)
+    private fun getSummaryTotal(start: Long?, end: Long?): Double {
+        val t = getSummary(start, end).optDouble("total_expense", 0.0)
         return if (t.isNaN()) 0.0 else t
     }
 
-    private fun getSummaryCount() = getRecentSummary().optInt("transaction_count", 0)
+    private fun getSummaryCount(start: Long?, end: Long?) = getSummary(start, end).optInt("transaction_count", 0)
 
     private fun insightToJson(insight: Insight): JSONObject {
         val json = JSONObject()

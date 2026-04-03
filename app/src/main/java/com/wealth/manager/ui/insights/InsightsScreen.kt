@@ -51,10 +51,18 @@ fun InsightsScreen(
     val dateRangePickerState = rememberDateRangePickerState()
     val scrollState = rememberLazyListState()
 
-    // 自动跟随文字流滚动到底部
-    LaunchedEffect(state.aiAnalysisResult) {
-        if (state.isAiAnalyzing && !state.aiAnalysisResult.isNullOrEmpty()) {
-            scrollState.animateScrollToItem(scrollState.layoutInfo.totalItemsCount - 1)
+    // 核心改进：点击 AI 复盘后，自动聚焦到 AI 区域
+    LaunchedEffect(state.isAiAnalyzing, state.aiAnalysisResult) {
+        if (state.isAiAnalyzing) {
+            if (state.aiAnalysisResult.isNullOrEmpty()) {
+                // 刚开始加载（Loading 状态），直接跳转到 AI 标题所在位置
+                // 索引计算：1(Summary) + 1(Title) + summaryItems.size
+                val aiSectionTitleIndex = 2 + state.summaryItems.size
+                scrollState.animateScrollToItem(aiSectionTitleIndex)
+            } else {
+                // 正在流式输出文字，自动跟随滚动到底部
+                scrollState.animateScrollToItem(scrollState.layoutInfo.totalItemsCount - 1)
+            }
         }
     }
 

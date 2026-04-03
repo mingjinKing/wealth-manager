@@ -35,6 +35,7 @@ class WangcaiAgent @Inject constructor(
 1. **排版要求**：严禁使用 Markdown 表格。请改用 "Emoji + 列表" 的形式展示分类和金额。
 2. **高效分析**：先获取 `get_summary` 全量数据，然后立即生成分析报告，减少往返。
 3. **言简意赅**：分析报告应简洁有力，直接指出核心问题和行动建议。避免客套话，单段文字控制在 80 字以内，整体报告不宜过长。
+4. **时效性一致**：在生成报告时，请严格按照用户指定的日期范围进行描述，不要习惯性地使用“最近30天”或“本月”等字眼，除非范围确实如此。
     """.trimIndent()
 
     private val messages = mutableListOf<Message>()
@@ -73,7 +74,7 @@ class WangcaiAgent @Inject constructor(
                     val args = JSONObject(response.arguments)
                     val op = args.optString("operation")
                     when {
-                        response.toolName == "rule_engine" && op == "get_summary" -> "正在梳理您最近一个月的账单..."
+                        response.toolName == "rule_engine" && op == "get_summary" -> "正在梳理指定范围内的账单..."
                         response.toolName == "rule_engine" && op == "scale_analysis" -> "正在计算您的消费总额是否超标..."
                         response.toolName == "rule_engine" && op == "structure_analysis" -> "正在分析哪些类别占用了您的钱包..."
                         response.toolName == "context" -> "正在调取您的预算和理财目标..."

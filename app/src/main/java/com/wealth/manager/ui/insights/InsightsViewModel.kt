@@ -17,7 +17,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import java.util.Calendar
+import java.text.SimpleDateFormat
+import java.util.*
 import javax.inject.Inject
 
 @HiltViewModel
@@ -85,8 +86,23 @@ class InsightsViewModel @Inject constructor(
     }
 
     fun triggerAiAnalysis() {
+        val currentState = _state.value
+        
+        val (analysisStart, analysisEnd, rangeText) = if (currentState.isDefaultMonth) {
+            val cal = Calendar.getInstance()
+            val end = cal.timeInMillis
+            cal.add(Calendar.DAY_OF_YEAR, -30)
+            Triple(cal.timeInMillis, end, "最近30天")
+        } else {
+            val df = SimpleDateFormat("yyyy-MM-dd", Locale.CHINA)
+            Triple(
+                currentState.startTime, 
+                currentState.endTime, 
+                "${df.format(Date(currentState.startTime))} 至 ${df.format(Date(currentState.endTime))}"
+            )
+        }
+
         viewModelScope.launch {
-            // 初始重置状态
             _state.value = _state.value.copy(
                 isAiAnalyzing = true,
                 aiAnalysisResult = "",
@@ -97,21 +113,20 @@ class InsightsViewModel @Inject constructor(
             try {
                 wangcaiAgent.clearContext()
                 appInitializer.refreshAppData()
-                val systemContext = buildSystemContextForAi()
+                
+                val systemContext = buildSystemContextForAi(analysisStart, analysisEnd, rangeText)
 
                 val progressRegex = Regex("\\[PROGRESS: (.*?)\\]")
 
                 wangcaiAgent.thinkStream(
-                    userMessage = "请根据我最近31天的真实账单，为我生成一份精简的财务复盘报告。直接说重点，不要啰嗦。",
+                    userMessage = "请根据我 $rangeText 的真实账单，为我生成一份精简的财务复盘报告。直接说重点，不要啰嗦。",
                     systemContext = systemContext
                 ).collect { delta ->
-                    // 1. 检查是否包含进度指令
                     val progressMatch = progressRegex.find(delta)
                     if (progressMatch != null) {
                         val status = progressMatch.groupValues[1]
                         _state.value = _state.value.copy(aiThoughtStatus = status)
                     } else {
-                        // 2. 正常追加文字
                         val current = _state.value.aiAnalysisResult ?: ""
                         _state.value = _state.value.copy(
                             aiAnalysisResult = current + delta
@@ -130,22 +145,21 @@ class InsightsViewModel @Inject constructor(
         }
     }
 
-    private suspend fun buildSystemContextForAi(): String {
-        val calendar = Calendar.getInstance()
-        val end = calendar.timeInMillis
-        calendar.add(Calendar.DAY_OF_YEAR, -30)
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        val start = calendar.timeInMillis
-
+    private suspend fun buildSystemContextForAi(start: Long, end: Long, rangeDesc: String): String {
         val expenses = expenseDao.getExpensesByDateRange(start, end).first()
         val total = expenses.sumOf { it.amount }
 
         return """
-            当前分析口径：最近31天
-            数据库总支出：¥${String.format("%.2f", total)}
-            指令：必须先调用 get_summary。输出请保持 Markdown 格式。
-            限制：结果必须极其精简，字数控制在 300 字以内，仅保留最核心的洞察和建议。
+            当前分析口径：$rangeDesc
+            时间戳参数（必须传给工具）：startTime=$start, endTime=$end
+            该范围内总支出：¥${String.format("%.2f", total)}
+            
+            指令：
+            1. 调用 rule_engine 工具时，**必须**带上上述 startTime 和 endTime 参数。
+            2. 严禁使用“最近30天”等惯性描述，应称呼此范围为“${rangeDesc}”。
+            3. 输出请保持 Markdown 格式。
+            
+            限制：结果必须极其精简，字数控制在 150 字以内。
         """.trimIndent()
     }
 
