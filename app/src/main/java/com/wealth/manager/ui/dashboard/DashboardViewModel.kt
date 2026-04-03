@@ -105,7 +105,7 @@ class DashboardViewModel @Inject constructor(
                 WowPreview(
                     savedAmount = savedAmount,
                     isTriggered = true,
-                    reason = “本周消费控制极佳！”
+                    reason = "本周消费控制极佳！"
                 )
             } else null
 
