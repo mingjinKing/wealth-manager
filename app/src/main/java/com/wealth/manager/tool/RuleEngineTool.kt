@@ -1,5 +1,6 @@
 package com.wealth.manager.tool
 
+import com.wealth.manager.agent.AgentContext
 import com.wealth.manager.data.dao.ExpenseDao
 import com.wealth.manager.data.dao.CategoryDao
 import com.wealth.manager.data.entity.ExpenseEntity
@@ -14,20 +15,22 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * 规则引擎工具 - 增强版 (支持指定日期范围)
+ * 规则引擎工具 - 增强版 (支持指定日期范围 & 记忆功能)
  */
 @Singleton
 class RuleEngineTool @Inject constructor(
     private val expenseDao: ExpenseDao,
-    private val categoryDao: CategoryDao
+    private val categoryDao: CategoryDao,
+    private val agentContext: AgentContext
 ) : Tool {
 
     override val name = "rule_engine"
     override val description = """
         核心财务数据工具。
-        - get_summary: 获取指定范围（或默认最近30天）的账单统计。
+        - get_summary: 获取指定范围的账单统计。
         - scale_analysis: 消费规模分析。
         - structure_analysis: 消费结构分析。
+        - record_user_explanation: 记录用户对某项支出的解释或备注，存入记忆。
     """.trimIndent()
 
     override val parametersSchema = """
@@ -36,7 +39,7 @@ class RuleEngineTool @Inject constructor(
             "properties": {
                 "operation": {
                     "type": "string",
-                    "enum": ["get_summary", "scale_analysis", "structure_analysis", "frequency_analysis"],
+                    "enum": ["get_summary", "scale_analysis", "structure_analysis", "frequency_analysis", "record_user_explanation"],
                     "description": "操作类型"
                 },
                 "startTime": {
@@ -46,6 +49,10 @@ class RuleEngineTool @Inject constructor(
                 "endTime": {
                     "type": "integer",
                     "description": "结束时间戳（毫秒），可选"
+                },
+                "explanation": {
+                    "type": "string",
+                    "description": "用户的解释内容，仅用于 record_user_explanation"
                 },
                 "data": {
                     "type": "object",
@@ -70,6 +77,7 @@ class RuleEngineTool @Inject constructor(
                 "scale_analysis" -> scaleAnalysis(data, startTime, endTime)
                 "structure_analysis" -> structureAnalysis(data, startTime, endTime)
                 "frequency_analysis" -> frequencyAnalysis(data, startTime, endTime)
+                "record_user_explanation" -> recordUserExplanation(json.optString("explanation", ""))
                 else -> errorResult("Unknown operation: $operation")
             }
 
@@ -77,6 +85,26 @@ class RuleEngineTool @Inject constructor(
         } catch (e: Exception) {
             errorResult("RuleEngineTool error: ${e.message}").toString()
         }
+    }
+
+    private fun recordUserExplanation(explanation: String): JSONObject {
+        if (explanation.isNotBlank()) {
+            // 将用户的解释存入 agent_context 的 memories 列表中
+            val existing = agentContext.read("user_memories")
+            val memoriesArray = if (existing.isEmpty()) JSONArray() else JSONArray(existing)
+            
+            val entry = JSONObject()
+            entry.put("date", SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.CHINA).format(Date()))
+            entry.put("content", explanation)
+            memoriesArray.put(entry)
+            
+            agentContext.write("user_memories", memoriesArray.toString())
+        }
+        
+        val res = JSONObject()
+        res.put("status", "success")
+        res.put("message", "旺财已记下您的反馈：$explanation")
+        return res
     }
 
     private fun getSummary(customStart: Long?, customEnd: Long?): JSONObject {
@@ -131,6 +159,8 @@ class RuleEngineTool @Inject constructor(
         res.put("total_expense", total)
         res.put("transaction_count", expenses.size)
         res.put("top_categories", categoryArray)
+        // 补充：带入历史记忆，方便 AI 参考
+        res.put("past_memories", agentContext.read("user_memories"))
         res.put("status", "success")
         return res
     }

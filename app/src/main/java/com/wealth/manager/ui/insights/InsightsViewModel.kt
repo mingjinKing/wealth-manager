@@ -107,7 +107,10 @@ class InsightsViewModel @Inject constructor(
                 isAiAnalyzing = true,
                 aiAnalysisResult = "",
                 aiThoughtStatus = "正在唤醒旺财...",
-                aiAnalysisError = null
+                aiAnalysisError = null,
+                showExplanationInput = false,
+                isExplanationVisible = false,
+                isReplyingToExplanation = false
             )
 
             try {
@@ -135,12 +138,61 @@ class InsightsViewModel @Inject constructor(
                 }
 
                 appInitializer.recordAnalysis()
-                _state.value = _state.value.copy(isAiAnalyzing = false)
+                _state.value = _state.value.copy(isAiAnalyzing = false, showExplanationInput = true)
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     isAiAnalyzing = false,
                     aiAnalysisError = e.message ?: "旺财刚才开小差了，请重试"
                 )
+            }
+        }
+    }
+
+    fun toggleExplanationVisibility() {
+        _state.value = _state.value.copy(isExplanationVisible = !_state.value.isExplanationVisible)
+    }
+
+    fun onExplanationChange(text: String) {
+        _state.value = _state.value.copy(userExplanation = text)
+    }
+
+    fun submitExplanation() {
+        val explanation = _state.value.userExplanation
+        if (explanation.isBlank()) return
+
+        viewModelScope.launch {
+            _state.value = _state.value.copy(
+                isAiAnalyzing = true,
+                isReplyingToExplanation = true,
+                aiThoughtStatus = "旺财正在记录记忆...",
+                userExplanation = "",
+                isExplanationVisible = false,
+                showExplanationInput = false,
+                aiAnalysisResult = (_state.value.aiAnalysisResult ?: "") + "\n\n> 我：$explanation\n\n"
+            )
+
+            try {
+                val progressRegex = Regex("\\[PROGRESS: (.*?)\\]")
+                
+                wangcaiAgent.thinkStream(
+                    userMessage = "这是我对刚才复盘的解释：\"$explanation\"。请调用 record_user_explanation 记录它，并给我一个极其简短的鼓励或建议作为结束。"
+                ).collect { delta ->
+                    val progressMatch = progressRegex.find(delta)
+                    if (progressMatch != null) {
+                        val status = progressMatch.groupValues[1]
+                        _state.value = _state.value.copy(aiThoughtStatus = status)
+                    } else {
+                        // AI 一旦开始说话（ delta 不为空且不是进度指令），说明思考结束，转入回复阶段
+                        val current = _state.value.aiAnalysisResult ?: ""
+                        _state.value = _state.value.copy(
+                            aiAnalysisResult = current + delta,
+                            isReplyingToExplanation = delta.isEmpty() // 只要有内容输出，就停止显示“转圈”
+                        )
+                    }
+                }
+                _state.value = _state.value.copy(isAiAnalyzing = false, isReplyingToExplanation = false)
+            } catch (e: Exception) {
+                _state.value = _state.value.copy(isAiAnalyzing = false, isReplyingToExplanation = false)
             }
         }
     }
@@ -202,7 +254,11 @@ data class InsightsState(
     val isAiAnalyzing: Boolean = false,
     val aiAnalysisResult: String? = null,
     val aiThoughtStatus: String = "",
-    val aiAnalysisError: String? = null
+    val aiAnalysisError: String? = null,
+    val userExplanation: String = "",
+    val showExplanationInput: Boolean = false,
+    val isExplanationVisible: Boolean = false,
+    val isReplyingToExplanation: Boolean = false // 新增：标记正在针对解释进行处理
 )
 
 data class CategorySummary(
