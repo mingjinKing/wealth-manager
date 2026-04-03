@@ -37,6 +37,9 @@ Thumbs.db
 signing.properties
 secrets.properties
 
+# API Keys and credentials
+gradle.properties
+
 # Log files
 *.log
 

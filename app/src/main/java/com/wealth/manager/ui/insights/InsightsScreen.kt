@@ -91,6 +91,17 @@ fun InsightsScreen(
                     }
                 },
                 actions = {
+                    // AI 全面复盘按钮
+                    if (!state.isAiAnalyzing && state.aiAnalysisResult == null) {
+                        TextButton(onClick = { viewModel.triggerAiAnalysis() }) {
+                            Text(
+                                text = "✨ AI 复盘",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                     IconButton(onClick = { showDateRangePicker = true }) {
                         Icon(
                             imageVector = Icons.Default.DateRange,
@@ -162,6 +173,15 @@ fun InsightsScreen(
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // 0. AI 分析结果（如果有）
+                item {
+                    when {
+                        state.isAiAnalyzing -> AiAnalysisLoadingCard()
+                        state.aiAnalysisError != null -> AiAnalysisErrorCard(error = state.aiAnalysisError!!)
+                        state.aiAnalysisResult != null -> AiAnalysisResultCard(result = state.aiAnalysisResult!!)
+                    }
+                }
+
                 item {
                     Column(
                         modifier = Modifier
@@ -446,4 +466,114 @@ fun GlobalAnalysisCard(insights: List<Insight>) {
 
 fun formatAmount(amount: Double): String {
     return String.format(Locale.getDefault(), "%,.2f", amount)
+}
+
+/**
+ * AI 分析加载中卡片
+ */
+@Composable
+private fun AiAnalysisLoadingCard() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(text = "✨", fontSize = 28.sp)
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "旺财正在分析中...",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "基于你的消费数据和上下文，生成个性化报告",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary
+            )
+        }
+    }
+}
+
+/**
+ * AI 分析错误卡片
+ */
+@Composable
+private fun AiAnalysisErrorCard(error: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.08f))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(text = "⚠️", fontSize = 18.sp)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "AI 分析失败",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.error,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = error,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+/**
+ * AI 分析结果卡片
+ */
+@Composable
+private fun AiAnalysisResultCard(result: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(text = "✨", fontSize = 18.sp)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "旺财分析报告",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = result,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 22.sp
+            )
+        }
+    }
 }
