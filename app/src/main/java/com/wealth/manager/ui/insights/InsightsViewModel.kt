@@ -84,34 +84,39 @@ class InsightsViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 触发 AI 全面复盘（流式输出原始 Markdown）
-     */
     fun triggerAiAnalysis() {
         viewModelScope.launch {
-            // 立即重置 AI 状态
+            // 初始重置状态
             _state.value = _state.value.copy(
                 isAiAnalyzing = true,
-                aiAnalysisResult = "", 
+                aiAnalysisResult = "",
+                aiThoughtStatus = "正在唤醒旺财...",
                 aiAnalysisError = null
             )
 
             try {
                 wangcaiAgent.clearContext()
                 appInitializer.refreshAppData()
-                
                 val systemContext = buildSystemContextForAi()
 
-                // thinkStream 返回 Flow<String>，delta 包含原始 Markdown
+                val progressRegex = Regex("\\[PROGRESS: (.*?)\\]")
+
                 wangcaiAgent.thinkStream(
-                    userMessage = "请根据我最近31天的真实账单，为我生成一份专业的财务健康评估报告。",
+                    userMessage = "请根据我最近31天的真实账单，为我生成一份精简的财务复盘报告。直接说重点，不要啰嗦。",
                     systemContext = systemContext
                 ).collect { delta ->
-                    val current = _state.value.aiAnalysisResult ?: ""
-                    // 保留 Markdown 标记，由 UI 层的渲染器处理
-                    _state.value = _state.value.copy(
-                        aiAnalysisResult = current + delta
-                    )
+                    // 1. 检查是否包含进度指令
+                    val progressMatch = progressRegex.find(delta)
+                    if (progressMatch != null) {
+                        val status = progressMatch.groupValues[1]
+                        _state.value = _state.value.copy(aiThoughtStatus = status)
+                    } else {
+                        // 2. 正常追加文字
+                        val current = _state.value.aiAnalysisResult ?: ""
+                        _state.value = _state.value.copy(
+                            aiAnalysisResult = current + delta
+                        )
+                    }
                 }
 
                 appInitializer.recordAnalysis()
@@ -119,7 +124,7 @@ class InsightsViewModel @Inject constructor(
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     isAiAnalyzing = false,
-                    aiAnalysisError = e.message ?: "旺财分析中断了，请重试"
+                    aiAnalysisError = e.message ?: "旺财刚才开小差了，请重试"
                 )
             }
         }
@@ -128,7 +133,7 @@ class InsightsViewModel @Inject constructor(
     private suspend fun buildSystemContextForAi(): String {
         val calendar = Calendar.getInstance()
         val end = calendar.timeInMillis
-        calendar.add(Calendar.DAY_OF_YEAR, -30) // 确保覆盖 31 天，包含 3 月 3 日
+        calendar.add(Calendar.DAY_OF_YEAR, -30)
         calendar.set(Calendar.HOUR_OF_DAY, 0)
         calendar.set(Calendar.MINUTE, 0)
         val start = calendar.timeInMillis
@@ -137,15 +142,11 @@ class InsightsViewModel @Inject constructor(
         val total = expenses.sumOf { it.amount }
 
         return """
-            当前分析口径：${formatTimeRange(start, end)} (共 31 天)
-            数据库精确总支出：¥${String.format("%.2f", total)}
-            指令：请以 Markdown 格式输出，包含加粗总结和分点建议。
+            当前分析口径：最近31天
+            数据库总支出：¥${String.format("%.2f", total)}
+            指令：必须先调用 get_summary。输出请保持 Markdown 格式。
+            限制：结果必须极其精简，字数控制在 300 字以内，仅保留最核心的洞察和建议。
         """.trimIndent()
-    }
-
-    private fun formatTimeRange(start: Long, end: Long): String {
-        val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
-        return "${sdf.format(java.util.Date(start))} ~ ${sdf.format(java.util.Date(end))}"
     }
 
     private fun generateGlobalAnalysis(summaries: List<CategorySummary>, total: Double): List<Insight> {
@@ -186,6 +187,7 @@ data class InsightsState(
     val isDefaultMonth: Boolean = true,
     val isAiAnalyzing: Boolean = false,
     val aiAnalysisResult: String? = null,
+    val aiThoughtStatus: String = "",
     val aiAnalysisError: String? = null
 )
 
