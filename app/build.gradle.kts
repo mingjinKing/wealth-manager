@@ -16,6 +16,10 @@ android {
         versionCode = 1
         versionName = "1.0.0"
 
+        // LLM API Key from gradle.properties (gradle.properties 不上传，仅本地开发使用)
+        val llmApiKey = project.findProperty("LLM_API_KEY")?.toString() ?: ""
+        buildConfigField("String", "LLM_API_KEY", "\"$llmApiKey\"")
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
@@ -40,6 +44,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.8"
@@ -90,6 +95,9 @@ dependencies {
 
     // OkHttp for LLM API calls
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // Security Crypto for EncryptedSharedPreferences
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     // Testing
     testImplementation("junit:junit:4.13.2")

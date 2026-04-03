@@ -1,0 +1,10 @@
+# 复制此文件为 gradle.properties，填入 API Key 后使用
+# gradle.properties 已被 .gitignore 忽略，不会提交到仓库
+
+# LLM API Key（火山引擎 Ark）
+# 获取地址：火山引擎控制台 → Ark API → 密钥管理
+LLM_API_KEY=your_api_key_here
+
+# AndroidX（勿删除）
+android.useAndroidX=true
+android.enableJetifier=true
