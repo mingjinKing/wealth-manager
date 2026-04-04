@@ -1,6 +1,6 @@
 # 知财 (Wealth Manager) - 技术规格说明书
 
-> 版本：v2.3 | 更新：2026-04-02 | 状态：**v1.0 已上线**
+> 版本：v2.4 | 更新：2026-04-04 | 状态：**v1.0 已上线**
 
 ---
 
@@ -151,6 +151,7 @@ wow_triggered = savedAmount > ¥100 AND savedAmount > last_4_week_avg × 20%
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| **v2.4** | 2026-04-04 | 旺财 Micro Agent v1.9.1 上线（DeepSeek-v3.2 + 工具系统 + 规则引擎模块化）；透视页 AI 复盘功能上线；AgentContext 持久化；API Key 加密存储 |
 | **v2.3** | 2026-04-02 | v1.0 已上线；精简产品哲学（保留定位），修正 AssetEntity.balance、BudgetEntity.month 格式、AssetType 枚举；与 Wiki 产品哲学文档分离 |
 | v2.2 | 2026-04-02 | 补充产品哲学（极简操作、静默守护、适时出现）、旺财人格定义 |
 | v2.1 | 2026-04-02 | 名称统一为知财、BottomNav 修正、补充 Room 5张表完整架构 |
