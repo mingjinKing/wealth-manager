@@ -112,6 +112,8 @@
 | 资产管理 | `/assets` | 侧边抽屉 |
 | 分类管理 | `/categories` | 侧边抽屉 |
 | 导入数据 | `/import` | 侧边抽屉 |
+| 设置页 | `/settings` | 主题颜色设置 |
+| 怎么花 | `/how` | AI 对话式消费建议 |
 
 **BottomNav 3栏**：🏠 首页 / 💡 算算账 / ⭐ 进阶
 
@@ -151,6 +153,7 @@ wow_triggered = savedAmount > ¥100 AND savedAmount > last_4_week_avg × 20%
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| **v2.5** | 2026-04-05 | 新增怎么花页面（HowToSpendScreen）；新增设置页面（SettingsScreen，主题颜色切换）；完善导入数据页面（ImportScreen）功能；补充文档缺失的 3 个页面 |
 | **v2.4** | 2026-04-04 | 旺财 Micro Agent v1.9.1 上线（DeepSeek-v3.2 + 工具系统 + 规则引擎模块化）；透视页 AI 复盘功能上线；AgentContext 持久化；API Key 加密存储 |
 | **v2.3** | 2026-04-02 | v1.0 已上线；精简产品哲学（保留定位），修正 AssetEntity.balance、BudgetEntity.month 格式、AssetType 枚举；与 Wiki 产品哲学文档分离 |
 | v2.2 | 2026-04-02 | 补充产品哲学（极简操作、静默守护、适时出现）、旺财人格定义 |
