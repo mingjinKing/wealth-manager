@@ -6,6 +6,9 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface BudgetDao {
+    @Query("SELECT * FROM budgets")
+    fun getAllBudgets(): Flow<List<BudgetEntity>>
+
     @Query("SELECT * FROM budgets WHERE month = :month AND categoryId IS NULL LIMIT 1")
     fun getGlobalBudget(month: String): Flow<BudgetEntity?>
 
@@ -20,4 +23,7 @@ interface BudgetDao {
 
     @Query("DELETE FROM budgets WHERE id = :id")
     suspend fun deleteBudget(id: Long)
+
+    @Query("DELETE FROM budgets")
+    suspend fun deleteAllBudgets()
 }

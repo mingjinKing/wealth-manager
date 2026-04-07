@@ -4,8 +4,13 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.wealth.manager.data.dao.AssetDao
+import com.wealth.manager.data.dao.BudgetDao
 import com.wealth.manager.data.dao.CategoryDao
 import com.wealth.manager.data.dao.ExpenseDao
+import com.wealth.manager.data.dao.WeekStatsDao
+import com.wealth.manager.export.DataExporter
+import com.wealth.manager.export.DataImporter
 import com.wealth.manager.import.QianjiImporter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -20,6 +25,8 @@ import javax.inject.Inject
 sealed class ImportUiState {
     data object Idle : ImportUiState()
     data object Parsing : ImportUiState()
+    data object Exporting : ImportUiState()
+    data class ExportSuccess(val filePath: String) : ImportUiState()
     data class Preview(
         val totalRows: Int,
         val expenseCount: Int,
@@ -51,7 +58,10 @@ data class SkippedItem(
 class ImportViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val categoryDao: CategoryDao,
-    private val expenseDao: ExpenseDao
+    private val expenseDao: ExpenseDao,
+    private val assetDao: AssetDao,
+    private val budgetDao: BudgetDao,
+    private val weekStatsDao: WeekStatsDao
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<ImportUiState>(ImportUiState.Idle)
@@ -129,6 +139,54 @@ class ImportViewModel @Inject constructor(
     fun reset() {
         parsedRecords = emptyList()
         _uiState.value = ImportUiState.Idle
+    }
+
+    /**
+     * 导出全量数据到 Downloads 文件夹
+     */
+    fun exportData() {
+        viewModelScope.launch {
+            _uiState.value = ImportUiState.Exporting
+            try {
+                val exporter = DataExporter(context, expenseDao, assetDao, categoryDao, budgetDao, weekStatsDao)
+                val filePath = exporter.exportToDownloads()
+                if (filePath != null) {
+                    _uiState.value = ImportUiState.ExportSuccess(filePath)
+                } else {
+                    _uiState.value = ImportUiState.Error("导出失败，请检查存储权限")
+                }
+            } catch (e: Exception) {
+                _uiState.value = ImportUiState.Error("导出失败: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * 从备份文件导入（覆盖模式）
+     */
+    fun importFromBackup(uri: Uri) {
+        viewModelScope.launch {
+            _uiState.value = ImportUiState.Parsing
+            try {
+                val jsonContent = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                }
+                if (jsonContent.isNullOrEmpty()) {
+                    _uiState.value = ImportUiState.Error("读取文件失败")
+                    return@launch
+                }
+
+                val importer = DataImporter(context, expenseDao, assetDao, categoryDao, budgetDao, weekStatsDao)
+                val count = importer.importAll(jsonContent)
+                if (count != null) {
+                    _uiState.value = ImportUiState.Success(count)
+                } else {
+                    _uiState.value = ImportUiState.Error("导入失败，数据格式错误")
+                }
+            } catch (e: Exception) {
+                _uiState.value = ImportUiState.Error("导入失败: ${e.message}")
+            }
+        }
     }
 
     private fun formatDate(millis: Long): String {

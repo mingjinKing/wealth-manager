@@ -27,4 +27,7 @@ interface WeekStatsDao {
 
     @Query("SELECT AVG(totalAmount) FROM week_stats ORDER BY weekStartDate DESC LIMIT :count")
     suspend fun getAverageLastWeeks(count: Int): Double?
+
+    @Query("DELETE FROM week_stats")
+    suspend fun deleteAllWeekStats()
 }

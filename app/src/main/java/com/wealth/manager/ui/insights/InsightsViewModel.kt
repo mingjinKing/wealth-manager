@@ -50,11 +50,18 @@ class InsightsViewModel @Inject constructor(
             val categories = categoryDao.getAllCategories().first()
             val categoryMap = categories.associateBy { it.id }
 
+            // 当期数据
             val expenseRecords = expenses.filter { categoryMap[it.categoryId]?.type == "EXPENSE" }
             val incomeRecords = expenses.filter { categoryMap[it.categoryId]?.type == "INCOME" }
 
             val totalExpense = expenseRecords.sumOf { it.amount }
             val totalIncome = incomeRecords.sumOf { it.amount }
+
+            // 累计数据（从第一笔到现在）
+            val allExpenses = expenseDao.getAllExpenses().first()
+            val lifetimeExpense = allExpenses.filter { categoryMap[it.categoryId]?.type == "EXPENSE" }.sumOf { it.amount }
+            val lifetimeIncome = allExpenses.filter { categoryMap[it.categoryId]?.type == "INCOME" }.sumOf { it.amount }
+            val lifetimeStart = allExpenses.minOfOrNull { it.date } ?: 0L
 
             val summaryItems = expenseRecords
                 .groupBy { it.categoryId }
@@ -80,7 +87,10 @@ class InsightsViewModel @Inject constructor(
                 summaryItems = summaryItems,
                 totalAmount = totalExpense,
                 totalIncome = totalIncome,
-                globalAnalysis = globalAnalysis
+                globalAnalysis = globalAnalysis,
+                lifetimeTotalExpense = lifetimeExpense,
+                lifetimeTotalIncome = lifetimeIncome,
+                lifetimeStartTime = lifetimeStart
             )
         }
     }
@@ -150,6 +160,17 @@ class InsightsViewModel @Inject constructor(
 
     fun toggleExplanationVisibility() {
         _state.value = _state.value.copy(isExplanationVisible = !_state.value.isExplanationVisible)
+    }
+
+    fun toggleCategoryExpanded(categoryName: String) {
+        val current = _state.value.expandedCategories
+        _state.value = _state.value.copy(
+            expandedCategories = if (current.contains(categoryName)) {
+                current - categoryName
+            } else {
+                current + categoryName
+            }
+        )
     }
 
     fun onExplanationChange(text: String) {
@@ -227,17 +248,21 @@ class InsightsViewModel @Inject constructor(
     }
 
     private fun getCurrentMonthRange(): Pair<Long, Long> {
-        val calendar = Calendar.getInstance()
-        calendar.set(Calendar.DAY_OF_MONTH, 1)
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        val monthStart = calendar.timeInMillis
-        calendar.set(Calendar.DAY_OF_MONTH, calendar.getActualMaximum(Calendar.DAY_OF_MONTH))
-        calendar.set(Calendar.HOUR_OF_DAY, 23)
-        calendar.set(Calendar.MINUTE, 59)
-        calendar.set(Calendar.SECOND, 59)
-        val monthEnd = calendar.timeInMillis
+        val cal = Calendar.getInstance()
+        cal.set(Calendar.DAY_OF_MONTH, 1)
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        val monthStart = cal.timeInMillis
+        
+        cal.set(Calendar.DAY_OF_MONTH, cal.getActualMaximum(Calendar.DAY_OF_MONTH))
+        cal.set(Calendar.HOUR_OF_DAY, 23)
+        cal.set(Calendar.MINUTE, 59)
+        cal.set(Calendar.SECOND, 59)
+        cal.set(Calendar.MILLISECOND, 999)
+        val monthEnd = cal.timeInMillis
+        
         return Pair(monthStart, monthEnd)
     }
 }
@@ -258,7 +283,12 @@ data class InsightsState(
     val userExplanation: String = "",
     val showExplanationInput: Boolean = false,
     val isExplanationVisible: Boolean = false,
-    val isReplyingToExplanation: Boolean = false // 新增：标记正在针对解释进行处理
+    val isReplyingToExplanation: Boolean = false,
+    val expandedCategories: Set<String> = emptySet(),
+    // 累计数据
+    val lifetimeTotalExpense: Double = 0.0,
+    val lifetimeTotalIncome: Double = 0.0,
+    val lifetimeStartTime: Long = 0L
 )
 
 data class CategorySummary(

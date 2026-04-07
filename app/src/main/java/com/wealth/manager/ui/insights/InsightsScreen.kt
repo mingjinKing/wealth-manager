@@ -77,12 +77,7 @@ fun InsightsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(text = "钱花哪了", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
-                    }
-                },
+                title = { Text(text = "钱花哪了", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
                 actions = {
                     if (!state.isAiAnalyzing) {
                         TextButton(onClick = { viewModel.triggerAiAnalysis() }) {
@@ -114,12 +109,19 @@ fun InsightsScreen(
                     SummaryOverviewCard(
                         period = period,
                         totalExpense = state.totalAmount,
-                        totalIncome = state.totalIncome
+                        totalIncome = state.totalIncome,
+                        lifetimeExpense = state.lifetimeTotalExpense,
+                        lifetimeIncome = state.lifetimeTotalIncome,
+                        lifetimeStartTime = state.lifetimeStartTime
                     )
                 }
 
                 item { Text(text = "消费分类占比", style = MaterialTheme.typography.labelLarge, color = TextSecondary) }
-                items(state.summaryItems) { item -> MonthlyCategoryCard(item = item) }
+                items(state.summaryItems) { item -> MonthlyCategoryCard(
+                    item = item,
+                    onCardClick = { viewModel.toggleCategoryExpanded(item.categoryName) },
+                    isExpanded = state.expandedCategories.contains(item.categoryName)
+                ) }
 
                 item {
                     val title = when (aiMode) {
@@ -231,41 +233,81 @@ private fun UserExplanationInput(
 }
 
 @Composable
-fun SummaryOverviewCard(period: String, totalExpense: Double, totalIncome: Double) {
+fun SummaryOverviewCard(
+    period: String,
+    totalExpense: Double,
+    totalIncome: Double,
+    lifetimeExpense: Double = 0.0,
+    lifetimeIncome: Double = 0.0,
+    lifetimeStartTime: Long = 0L
+) {
+    val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.CHINA)
+    val startDateStr = if (lifetimeStartTime > 0) dateFormat.format(Date(lifetimeStartTime)) else "---"
+
     Card(
         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(20.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(text = "${period}总支出", color = TextSecondary, style = MaterialTheme.typography.labelMedium)
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "¥${String.format(Locale.CHINA, "%.2f", totalExpense)}",
-                    color = Warning,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            
-            VerticalDivider(
-                modifier = Modifier.height(32.dp).width(1.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
-            )
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(text = "${period}支出", color = TextSecondary, style = MaterialTheme.typography.labelMedium)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "¥${String.format(Locale.CHINA, "%.2f", totalExpense)}",
+                        color = Warning,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
 
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(text = "${period}总收入", color = TextSecondary, style = MaterialTheme.typography.labelMedium)
+                VerticalDivider(
+                    modifier = Modifier.height(32.dp).width(1.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
+                )
+
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(text = "${period}收入", color = TextSecondary, style = MaterialTheme.typography.labelMedium)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "¥${String.format(Locale.CHINA, "%.2f", totalIncome)}",
+                        color = Income,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            // 累计数据
+            if (lifetimeExpense > 0) {
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f))
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "累计支出: ¥${String.format(Locale.CHINA, "%.0f", lifetimeExpense)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextSecondary
+                    )
+                    Text(
+                        text = "累计收入: ¥${String.format(Locale.CHINA, "%.0f", lifetimeIncome)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextSecondary
+                    )
+                }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "¥${String.format(Locale.CHINA, "%.2f", totalIncome)}",
-                    color = Income,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                    text = "记账起始: $startDateStr",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextSecondary
                 )
             }
         }
@@ -273,9 +315,15 @@ fun SummaryOverviewCard(period: String, totalExpense: Double, totalIncome: Doubl
 }
 
 @Composable
-fun MonthlyCategoryCard(item: CategorySummary) {
+fun MonthlyCategoryCard(
+    item: CategorySummary,
+    onCardClick: () -> Unit,
+    isExpanded: Boolean
+) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onCardClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Surface)
     ) {
@@ -285,6 +333,8 @@ fun MonthlyCategoryCard(item: CategorySummary) {
                     Text(text = item.categoryEmoji, fontSize = 20.sp)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(text = item.categoryName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = if (isExpanded) "▼" else "▶", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                 }
                 Text(text = "¥${String.format(Locale.CHINA, "%.2f", item.amount)}", color = Warning, fontWeight = FontWeight.Bold)
             }
@@ -295,6 +345,54 @@ fun MonthlyCategoryCard(item: CategorySummary) {
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.outlineVariant
             )
+
+            // 展开显示消费明细
+            AnimatedVisibility(
+                visible = isExpanded,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Column(modifier = Modifier.padding(top = 12.dp)) {
+                    item.items.take(10).forEach { expense ->
+                        val dateStr = SimpleDateFormat("MM-dd", Locale.CHINA).format(Date(expense.date))
+                        val hasNote = expense.note.isNotEmpty()
+                        
+                        Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = dateStr,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = TextSecondary
+                                )
+                                Text(
+                                    text = "-¥${String.format(Locale.CHINA, "%.2f", expense.amount)}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                            if (hasNote) {
+                                Text(
+                                    text = expense.note,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = TextSecondary.copy(alpha = 0.7f),
+                                    modifier = Modifier.padding(start = 8.dp, top = 2.dp)
+                                )
+                            }
+                        }
+                    }
+                    if (item.items.size > 10) {
+                        Text(
+                            text = "还有 ${item.items.size - 10} 笔...",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                }
+            }
         }
     }
 }

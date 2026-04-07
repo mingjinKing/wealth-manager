@@ -3,6 +3,7 @@ package com.wealth.manager.ui.dashboard
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.wealth.manager.data.dao.AssetDao
 import com.wealth.manager.data.dao.CategoryDao
 import com.wealth.manager.data.dao.ExpenseDao
 import com.wealth.manager.data.dao.WeekStatsDao
@@ -27,6 +28,7 @@ class DashboardViewModel @Inject constructor(
     private val expenseDao: ExpenseDao,
     private val categoryDao: CategoryDao,
     private val weekStatsDao: WeekStatsDao,
+    private val assetDao: AssetDao,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -46,6 +48,18 @@ class DashboardViewModel @Inject constructor(
 
     fun deleteExpense(id: Long) {
         viewModelScope.launch {
+            // 先查询账单信息，用于恢复账户余额
+            val expense = expenseDao.getExpenseById(id)
+            expense?.let {
+                // 如果有关联账户，恢复余额
+                if (it.assetId != null && it.amount > 0) {
+                    val asset = assetDao.getAssetById(it.assetId!!)
+                    asset?.let { a ->
+                        assetDao.updateAsset(a.copy(balance = a.balance + it.amount))
+                    }
+                }
+            }
+            // 删除账单
             expenseDao.deleteExpenseById(id)
             loadDashboardData(showLoading = false) // Refresh after delete
         }

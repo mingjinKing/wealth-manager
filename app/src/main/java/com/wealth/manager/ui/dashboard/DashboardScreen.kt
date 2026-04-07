@@ -27,8 +27,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -103,6 +103,9 @@ fun DashboardScreen(
     )
     var currentBgIndex by remember { mutableIntStateOf(0) }
 
+    // AI洞察弹窗状态
+    var showAiInsightsDialog by remember { mutableStateOf(false) }
+
     LaunchedEffect(Unit) {
         viewModel.loadDashboardData(showLoading = false)
     }
@@ -121,10 +124,10 @@ fun DashboardScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { launcher.launch("image/*") }) {
+                    IconButton(onClick = { showAiInsightsDialog = true }) {
                         Icon(
-                            imageVector = Icons.Default.Palette, // 使用更简约的皮肤/主题图标
-                            contentDescription = "更换背景",
+                            imageVector = Icons.Default.Lightbulb,
+                            contentDescription = "AI 洞察",
                             tint = Color.White
                         )
                     }
@@ -176,13 +179,7 @@ fun DashboardScreen(
                     recent7DaysTotal = state.recent7DaysTotal,
                     bgResourceId = backgroundResources[currentBgIndex],
                     customBgUri = state.customBackgroundImageUri,
-                    onBgClick = {
-                        if (state.customBackgroundImageUri == null) {
-                            currentBgIndex = (currentBgIndex + 1) % backgroundResources.size
-                        } else {
-                            viewModel.updateCustomBackground(null)
-                        }
-                    }
+                    onAiInsightsClick = { showAiInsightsDialog = true }
                 )
             }
 
@@ -269,6 +266,39 @@ fun DashboardScreen(
                 }
             )
         }
+
+        // AI洞察弹窗
+        if (showAiInsightsDialog) {
+            AlertDialog(
+                onDismissRequest = { showAiInsightsDialog = false },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(text = "💡", style = MaterialTheme.typography.titleLarge)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("AI 洞察", fontWeight = FontWeight.Bold)
+                    }
+                },
+                text = {
+                    state.wowPreview?.let { wow ->
+                        WowPreviewCard(wowPreview = wow)
+                    } ?: run {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("暂无洞察数据", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("记账一段时间后，AI 会为你生成消费洞察", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showAiInsightsDialog = false }) {
+                        Text("关闭")
+                    }
+                }
+            )
+        }
     }
 }
 
@@ -279,13 +309,13 @@ fun MonthOverviewCard(
     recent7DaysTotal: Double,
     bgResourceId: Int,
     customBgUri: String?,
-    onBgClick: () -> Unit
+    onAiInsightsClick: () -> Unit
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(4f / 3f)
-            .clickable { onBgClick() }
+            .clickable { onAiInsightsClick() }
     ) {
         if (customBgUri != null) {
             AsyncImage(

@@ -1,6 +1,9 @@
 package com.wealth.manager.ui.add
 
+import android.content.Context
+import android.content.SharedPreferences
 import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -22,18 +25,25 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Backspace
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -66,16 +76,19 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.wealth.manager.data.entity.AssetEntity
 import com.wealth.manager.data.entity.CategoryEntity
 import com.wealth.manager.ui.theme.Background
 import com.wealth.manager.ui.theme.Surface
 import com.wealth.manager.ui.theme.TextSecondary
+import com.wealth.manager.ui.theme.ThemeViewModel
 import com.wealth.manager.ui.theme.Warning
 import java.util.Calendar
 
@@ -85,20 +98,43 @@ fun AddExpenseScreen(
     expenseToEdit: Long? = null,
     onNavigateToDashboard: () -> Unit = {},
     onNavigateBack: () -> Unit = {},
-    viewModel: AddExpenseViewModel = hiltViewModel()
+    viewModel: AddExpenseViewModel = hiltViewModel<AddExpenseViewModel>()
 ) {
     val categories by viewModel.categories.collectAsState()
+    val assets by viewModel.assets.collectAsState()
     val editingExpense by viewModel.editingExpense.collectAsState()
     val selectedTab by viewModel.selectedTab.collectAsState()
+
+    // 从 SharedPreferences 读取设置
+    val ctx = LocalContext.current
+    val prefs = ctx.getSharedPreferences("theme_prefs", Context.MODE_PRIVATE)
+    val showAssetSelection = remember { mutableStateOf(prefs.getBoolean("show_asset_selection", false)) }
+    
+    // 监听设置变化
+    DisposableEffect(Unit) {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == "show_asset_selection") {
+                showAssetSelection.value = prefs.getBoolean("show_asset_selection", false)
+            }
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose {
+            prefs.unregisterOnSharedPreferenceChangeListener(listener)
+        }
+    }
 
     var amount by remember { mutableStateOf("0") }
     var note by remember { mutableStateOf("") }
     var selectedCategoryId by remember { mutableStateOf<Long?>(null) }
     var selectedDateMillis by remember { mutableLongStateOf(getTodayStartMillis()) }
+    var selectedAssetId by remember { mutableStateOf<Long?>(null) }
     var showDatePicker by remember { mutableStateOf(false) }
 
     // 删除分类相关状态
     var categoryToDelete by remember { mutableStateOf<CategoryEntity?>(null) }
+    
+    // 提示状态
+    var showCategoryHint by remember { mutableStateOf(false) }
 
     // 计算器逻辑状态
     var pendingValue by remember { mutableStateOf<Double?>(null) }
@@ -169,11 +205,13 @@ fun AddExpenseScreen(
             note = it.note
             selectedCategoryId = it.categoryId
             selectedDateMillis = it.date
+            selectedAssetId = it.assetId
         }
     }
 
     val isEditMode = expenseToEdit != null
     val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     // 动态键盘高度补偿（防止键盘遮挡底部输入区）
     val density = LocalDensity.current
@@ -293,18 +331,17 @@ fun AddExpenseScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .navigationBarsPadding()
                     .imePadding()
             ) {
                 // 类别选择区域 - 升级为 4 列网格布局
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(4),
+                    columns = GridCells.Fixed(5),
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(20.dp)
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(categories.size) { index ->
                         val category = categories[index]
@@ -321,14 +358,14 @@ fun AddExpenseScreen(
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(52.dp)
+                                    .size(30.dp)
                                     .clip(CircleShape)
                                     .background(if (isSelected) MaterialTheme.colorScheme.primary else Surface),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(text = category.icon, fontSize = 24.sp)
+                                Text(text = category.icon, fontSize = 16.sp)
                             }
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = category.name,
                                 style = MaterialTheme.typography.labelMedium,
@@ -357,11 +394,65 @@ fun AddExpenseScreen(
                     Column(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
+                        // 第一行：账户选择（可选）+ 备注 + 金额
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            // 账户选择（当设置开启时显示）
+                            if (showAssetSelection.value && assets.isNotEmpty()) {
+                                var expanded by remember { mutableStateOf(false) }
+                                val selectedAsset = assets.find { it.id == selectedAssetId }
+
+                                Box(
+                                    modifier = Modifier
+                                        .width(72.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Surface)
+                                        .clickable { expanded = true }
+                                        .padding(horizontal = 6.dp, vertical = 8.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = selectedAsset?.name ?: "账户",
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                        Icon(
+                                            imageVector = Icons.Default.ArrowDropDown,
+                                            contentDescription = null,
+                                            tint = TextSecondary,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                    DropdownMenu(
+                                        expanded = expanded,
+                                        onDismissRequest = { expanded = false }
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = { Text("不关联") },
+                                            onClick = {
+                                                selectedAssetId = null
+                                                expanded = false
+                                            }
+                                        )
+                                        assets.forEach { asset ->
+                                            DropdownMenuItem(
+                                                text = { Text("${asset.icon} ${asset.name}") },
+                                                onClick = {
+                                                    selectedAssetId = asset.id
+                                                    expanded = false
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
@@ -382,7 +473,28 @@ fun AddExpenseScreen(
                                     textStyle = TextStyle(fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface),
                                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                                     modifier = Modifier.fillMaxWidth(),
-                                    singleLine = true
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                                    keyboardActions = KeyboardActions(
+                                        onDone = {
+                                            // 先收起键盘
+                                            keyboardController?.hide()
+                                            // 再触发确认
+                                            val finalAmount = amount.toDoubleOrNull() ?: 0.0
+                                            val assetIdToSave = if (showAssetSelection.value) selectedAssetId else null
+                                            if (finalAmount > 0 && selectedCategoryId != null) {
+                                                if (isEditMode && expenseToEdit != null) {
+                                                    viewModel.updateExpense(expenseToEdit, finalAmount, selectedCategoryId!!, note, selectedDateMillis, assetIdToSave) {
+                                                        onNavigateBack()
+                                                    }
+                                                } else {
+                                                    viewModel.addExpense(finalAmount, selectedCategoryId!!, note, selectedDateMillis, assetIdToSave) {
+                                                        onNavigateToDashboard()
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    )
                                 )
                             }
 
@@ -434,26 +546,50 @@ fun AddExpenseScreen(
                                 }
                             },
                             onConfirmClick = {
+                                // 每次点击先清除之前的提示
+                                showCategoryHint = false
+
                                 if (pendingOperator != null) {
                                     performCalculation()
                                 }
 
                                 val finalAmount = amount.toDoubleOrNull() ?: 0.0
-                                if (finalAmount > 0 && selectedCategoryId != null) {
+                                val assetIdToSave = if (showAssetSelection.value) selectedAssetId else null
+
+                                // 检查是否选择了分类
+                                if (selectedCategoryId == null) {
+                                    showCategoryHint = true
+                                } else if (finalAmount > 0) {
+                                    // 分类和金额都有效，提交
                                     if (isEditMode && expenseToEdit != null) {
-                                        viewModel.updateExpense(expenseToEdit, finalAmount, selectedCategoryId!!, note, selectedDateMillis) {
+                                        viewModel.updateExpense(expenseToEdit, finalAmount, selectedCategoryId!!, note, selectedDateMillis, assetIdToSave) {
                                             onNavigateBack()
                                         }
                                     } else {
-                                        viewModel.addExpense(finalAmount, selectedCategoryId!!, note, selectedDateMillis) {
+                                        viewModel.addExpense(finalAmount, selectedCategoryId!!, note, selectedDateMillis, assetIdToSave) {
                                             onNavigateToDashboard()
                                         }
                                     }
                                 }
                             }
                         )
+                        
+                        // 提示：请选择分类
+                        if (showCategoryHint) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "请选择分类",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                        
                         // 动态底部补偿：超高键盘时额外增加底部间距，确保输入区不被遮挡
-                        Spacer(modifier = Modifier.height(16.dp + extraBottomPadding))
+                        Spacer(modifier = Modifier.height(8.dp + extraBottomPadding))
+                        // 确保底部导航栏不被键盘顶起
+                        Spacer(modifier = Modifier.navigationBarsPadding())
                     }
                 }
             }

@@ -25,6 +25,9 @@ interface AssetDao {
     @Delete
     suspend fun deleteAsset(asset: AssetEntity)
 
+    @Query("DELETE FROM assets")
+    suspend fun deleteAllAssets()
+
     // 修改：只计算未隐藏且 balance > 0 的资产（除信用卡和负债借款外）
     @Query("SELECT SUM(balance) FROM assets WHERE type != 'CREDIT_CARD' AND NOT (type = 'LOAN' AND balance < 0) AND isHidden = 0")
     fun getTotalAssets(): Flow<Double?>

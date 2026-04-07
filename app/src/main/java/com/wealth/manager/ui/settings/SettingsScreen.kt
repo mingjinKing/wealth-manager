@@ -1,34 +1,219 @@
 package com.wealth.manager.ui.settings
 
+import android.content.Context
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
+import com.wealth.manager.ui.navigation.Screen
 import com.wealth.manager.ui.theme.*
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
-    viewModel: ThemeViewModel = hiltViewModel()
+    navController: NavController? = null,
+    viewModel: ThemeViewModel = hiltViewModel<ThemeViewModel>()
 ) {
     val currentThemeColor by viewModel.currentThemeColor.collectAsState()
+    val assetPasswordProtection by viewModel.assetPasswordProtection.collectAsState()
+
+    // 密码设置弹窗状态
+    var showPasswordSetDialog by remember { mutableStateOf(false) }
+    var showPasswordChangeDialog by remember { mutableStateOf(false) }
+    var passwordInput by remember { mutableStateOf("") }
+    var passwordConfirm by remember { mutableStateOf("") }
+    var passwordError by remember { mutableStateOf<String?>(null) }
+
+    // 启用密码保护时弹窗
+    if (showPasswordSetDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showPasswordSetDialog = false
+                passwordInput = ""
+                passwordConfirm = ""
+                passwordError = null
+            },
+            title = { Text("设置密码") },
+            text = {
+                Column {
+                    if (!viewModel.hasAssetPassword()) {
+                        Text("请设置资产管理访问密码", style = MaterialTheme.typography.bodyMedium)
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                    OutlinedTextField(
+                        value = passwordInput,
+                        onValueChange = { if (it.length <= 6) passwordInput = it },
+                        label = { Text("输入密码（最多6位）") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        visualTransformation = PasswordVisualTransformation(),
+                        isError = passwordError != null,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = passwordConfirm,
+                        onValueChange = { if (it.length <= 6) passwordConfirm = it },
+                        label = { Text("确认密码") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        visualTransformation = PasswordVisualTransformation(),
+                        isError = passwordError != null,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (passwordError != null) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = passwordError!!,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        passwordError = null
+                        if (passwordInput.length < 4) {
+                            passwordError = "密码至少4位"
+                            return@TextButton
+                        }
+                        if (passwordInput != passwordConfirm) {
+                            passwordError = "两次密码不一致"
+                            return@TextButton
+                        }
+                        viewModel.setAssetPassword(passwordInput)
+                        viewModel.setAssetPasswordProtection(true)
+                        showPasswordSetDialog = false
+                        passwordInput = ""
+                        passwordConfirm = ""
+                    }
+                ) {
+                    Text("确定")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showPasswordSetDialog = false
+                        passwordInput = ""
+                        passwordConfirm = ""
+                        passwordError = null
+                        // 关闭开关（用户取消了设置密码）
+                        if (!viewModel.hasAssetPassword()) {
+                            viewModel.setAssetPasswordProtection(false)
+                        }
+                    }
+                ) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
+    // 修改密码弹窗
+    if (showPasswordChangeDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showPasswordChangeDialog = false
+                passwordInput = ""
+                passwordConfirm = ""
+                passwordError = null
+            },
+            title = { Text("修改密码") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = passwordInput,
+                        onValueChange = { if (it.length <= 6) passwordInput = it },
+                        label = { Text("新密码（最多6位）") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        visualTransformation = PasswordVisualTransformation(),
+                        isError = passwordError != null,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = passwordConfirm,
+                        onValueChange = { if (it.length <= 6) passwordConfirm = it },
+                        label = { Text("确认新密码") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        visualTransformation = PasswordVisualTransformation(),
+                        isError = passwordError != null,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (passwordError != null) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = passwordError!!,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        passwordError = null
+                        if (passwordInput.length < 4) {
+                            passwordError = "密码至少4位"
+                            return@TextButton
+                        }
+                        if (passwordInput != passwordConfirm) {
+                            passwordError = "两次密码不一致"
+                            return@TextButton
+                        }
+                        viewModel.setAssetPassword(passwordInput)
+                        showPasswordChangeDialog = false
+                        passwordInput = ""
+                        passwordConfirm = ""
+                    }
+                ) {
+                    Text("确定")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showPasswordChangeDialog = false
+                        passwordInput = ""
+                        passwordConfirm = ""
+                        passwordError = null
+                    }
+                ) {
+                    Text("取消")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -88,6 +273,231 @@ fun SettingsScreen(
                             viewModel.setThemeColor(ThemePurple)
                         }
                     }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // 换背景图
+                val context = LocalContext.current
+                val prefs = context.getSharedPreferences("dashboard_prefs", android.content.Context.MODE_PRIVATE)
+                val currentBgUri = prefs.getString("custom_bg_uri", null)
+
+                val launcher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.OpenDocument()
+                ) { uri: Uri? ->
+                    uri?.let {
+                        try {
+                            val inputStream = context.contentResolver.openInputStream(it)
+                            val fileName = "custom_background_${System.currentTimeMillis()}.jpg"
+                            val file = File(context.filesDir, fileName)
+                            inputStream?.use { input ->
+                                file.outputStream().use { output ->
+                                    input.copyTo(output)
+                                }
+                            }
+                            prefs.edit().putString("custom_bg_uri", file.absolutePath).apply()
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { launcher.launch(arrayOf("image/*")) }
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "首页背景图",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = if (currentBgUri != null) "已设置自定义背景" else "使用默认背景",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary
+                        )
+                    }
+                    if (currentBgUri != null) {
+                        TextButton(onClick = {
+                            prefs.edit().remove("custom_bg_uri").apply()
+                        }) {
+                            Text("清除", color = Warning)
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
+                text = "隐私保护",
+                style = MaterialTheme.typography.titleMedium,
+                color = TextSecondary,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Surface)
+            ) {
+                Column {
+                    // 资产管理密码保护开关
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "资产管理密码保护",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = if (assetPasswordProtection) "访问资产管理需输入密码" else "关闭密码保护",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextSecondary
+                            )
+                        }
+                        Switch(
+                            checked = assetPasswordProtection,
+                            onCheckedChange = { enabled ->
+                                if (enabled && !viewModel.hasAssetPassword()) {
+                                    // 还没有设置密码，先弹窗设置
+                                    showPasswordSetDialog = true
+                                } else if (enabled && viewModel.hasAssetPassword()) {
+                                    viewModel.setAssetPasswordProtection(true)
+                                } else {
+                                    viewModel.setAssetPasswordProtection(false)
+                                }
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                            )
+                        )
+                    }
+
+                    // 如果已经启用，显示"修改密码"按钮
+                    if (assetPasswordProtection && viewModel.hasAssetPassword()) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            color = Background
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showPasswordChangeDialog = true }
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "修改密码",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Icon(
+                                imageVector = Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                tint = TextSecondary
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
+                text = "AI 记忆",
+                style = MaterialTheme.typography.titleMedium,
+                color = TextSecondary,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Surface)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { navController?.navigate(Screen.MemoryManagement.route) }
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "记忆管理",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = "查看和清除 AI 从对话中学到的记忆",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = TextSecondary
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
+                text = "记账设置",
+                style = MaterialTheme.typography.titleMedium,
+                color = TextSecondary,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Surface)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "关联账户",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = "记账时选择资金从哪个账户支出",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary
+                        )
+                    }
+                    Switch(
+                        checked = viewModel.showAssetSelection.collectAsState().value,
+                        onCheckedChange = { viewModel.setShowAssetSelection(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MaterialTheme.colorScheme.primary,
+                            checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                        )
+                    )
                 }
             }
         }

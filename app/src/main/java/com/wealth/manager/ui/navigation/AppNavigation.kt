@@ -17,39 +17,62 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.NewReleases
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.Star
-
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -63,10 +86,14 @@ import com.wealth.manager.ui.category.CategoryManageScreen
 import com.wealth.manager.ui.dashboard.DashboardScreen
 import com.wealth.manager.ui.importdata.ImportScreen
 import com.wealth.manager.ui.insights.InsightsScreen
+import com.wealth.manager.ui.how.HowToSpendScreen
 import com.wealth.manager.ui.settings.SettingsScreen
+import com.wealth.manager.ui.settings.MemoryManagementScreen
+import com.wealth.manager.ui.version.VersionInfoScreen
 import com.wealth.manager.ui.theme.Background
 import com.wealth.manager.ui.theme.Surface
 import com.wealth.manager.ui.theme.TextSecondary
+import com.wealth.manager.ui.theme.ThemeViewModel
 import kotlinx.coroutines.launch
 
 data class BottomNavItem(
@@ -90,6 +117,12 @@ val bottomNavItems = listOf(
         route = Screen.Insights.route
     ),
     BottomNavItem(
+        label = "怎么花",
+        selectedIcon = Icons.Filled.Lightbulb,
+        unselectedIcon = Icons.Outlined.Lightbulb,
+        route = Screen.How.route
+    ),
+    BottomNavItem(
         label = "进阶",
         selectedIcon = Icons.Filled.Star,
         unselectedIcon = Icons.Outlined.Star,
@@ -106,7 +139,8 @@ data class DrawerMenuItem(
 val drawerMenuItems = listOf(
     DrawerMenuItem("资产管理", Icons.Default.AccountBalanceWallet, Screen.AssetManage.route),
     DrawerMenuItem("分类管理", Icons.Default.List, Screen.CategoryManage.route),
-    DrawerMenuItem("导入数据", Icons.Default.Download, Screen.Import.route)
+    DrawerMenuItem("导入数据", Icons.Default.Download, Screen.Import.route),
+    DrawerMenuItem("版本信息", Icons.Default.NewReleases, Screen.VersionInfo.route)
 )
 
 @Composable
@@ -114,8 +148,85 @@ fun AppNavigation() {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
+    val themeViewModel: ThemeViewModel = hiltViewModel()
+    val assetPasswordProtection by themeViewModel.assetPasswordProtection.collectAsState()
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+
+    // 密码验证弹窗状态
+    var showAssetPasswordDialog by remember { mutableStateOf(false) }
+    var pendingAssetRoute by remember { mutableStateOf<String?>(null) }
+    var passwordInput by remember { mutableStateOf("") }
+    var passwordError by remember { mutableStateOf<String?>(null) }
+
+    // 密码验证弹窗
+    if (showAssetPasswordDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showAssetPasswordDialog = false
+                pendingAssetRoute = null
+                passwordInput = ""
+                passwordError = null
+            },
+            title = { Text("请输入密码") },
+            text = {
+                Column {
+                    Text("访问资产管理需要密码验证", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    TextField(
+                        value = passwordInput,
+                        onValueChange = { if (it.length <= 6) passwordInput = it },
+                        label = { Text("密码") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        visualTransformation = PasswordVisualTransformation(),
+                        isError = passwordError != null,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (passwordError != null) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = passwordError!!,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (themeViewModel.verifyAssetPassword(passwordInput)) {
+                            showAssetPasswordDialog = false
+                            passwordInput = ""
+                            passwordError = null
+                            pendingAssetRoute?.let { route ->
+                                navController.navigate(route) {
+                                    launchSingleTop = true
+                                }
+                            }
+                            pendingAssetRoute = null
+                        } else {
+                            passwordError = "密码错误"
+                        }
+                    }
+                ) {
+                    Text("确定")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showAssetPasswordDialog = false
+                        pendingAssetRoute = null
+                        passwordInput = ""
+                        passwordError = null
+                    }
+                ) {
+                    Text("取消")
+                }
+            }
+        )
+    }
     val scope = rememberCoroutineScope()
 
     fun isRouteSelected(route: String): Boolean {
@@ -138,39 +249,40 @@ fun AppNavigation() {
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(MaterialTheme.colorScheme.primary)
-                            .padding(horizontal = 20.dp, vertical = 32.dp)
+                            .padding(horizontal = 20.dp, vertical = 16.dp)
                     ) {
                         Image(
                             painter = painterResource(id = R.drawable.ic_logo),
                             contentDescription = "App Logo",
                             modifier = Modifier
-                                .size(64.dp)
-                                .padding(bottom = 12.dp)
+                                .size(48.dp)
+                                .padding(bottom = 8.dp)
                         )
-                        Text(
-                            text = "知财",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "知其财，治其财",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimary
                         )
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
 
                     drawerMenuItems.forEach { item ->
+                        val needsPassword = item.route == Screen.AssetManage.route && assetPasswordProtection
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    scope.launch { drawerState.close() }
-                                    navController.navigate(item.route) {
-                                        launchSingleTop = true
+                                    if (needsPassword) {
+                                        scope.launch { drawerState.close() }
+                                        pendingAssetRoute = item.route
+                                        showAssetPasswordDialog = true
+                                    } else {
+                                        scope.launch { drawerState.close() }
+                                        navController.navigate(item.route) {
+                                            launchSingleTop = true
+                                        }
                                     }
                                 }
                                 .background(
@@ -241,7 +353,6 @@ fun AppNavigation() {
                         .fillMaxWidth()
                         .background(Background)
                         .navigationBarsPadding()
-                        .imePadding()
                 ) {
                     Row(
                         modifier = Modifier
@@ -307,6 +418,9 @@ fun AppNavigation() {
                         onNavigateBack = { navController.popBackStack() }
                     )
                 }
+                composable(Screen.How.route) {
+                    HowToSpendScreen()
+                }
                 composable(Screen.Add.route) {
                     AddExpenseScreen(
                         expenseToEdit = null,
@@ -357,6 +471,17 @@ fun AppNavigation() {
                 }
                 composable(Screen.Settings.route) {
                     SettingsScreen(
+                        onNavigateBack = { navController.popBackStack() },
+                        navController = navController
+                    )
+                }
+                composable(Screen.VersionInfo.route) {
+                    VersionInfoScreen(
+                        onNavigateBack = { navController.popBackStack() }
+                    )
+                }
+                composable(Screen.MemoryManagement.route) {
+                    MemoryManagementScreen(
                         onNavigateBack = { navController.popBackStack() }
                     )
                 }

@@ -28,6 +28,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -67,6 +68,14 @@ fun ImportScreen(
         }
     }
 
+    val backupPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let {
+            viewModel.importFromBackup(it)
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -88,11 +97,23 @@ fun ImportScreen(
             is ImportUiState.Idle -> {
                 IdleContent(
                     onSelectFile = { filePicker.launch(arrayOf("text/csv", "text/comma-separated-values", "application/csv", "*/*")) },
+                    onExport = { viewModel.exportData() },
+                    onRestoreBackup = { backupPicker.launch(arrayOf("application/json", "*/*")) },
                     modifier = Modifier.padding(paddingValues)
                 )
             }
             is ImportUiState.Parsing -> {
                 ParsingContent(modifier = Modifier.padding(paddingValues))
+            }
+            is ImportUiState.Exporting -> {
+                ExportingContent(modifier = Modifier.padding(paddingValues))
+            }
+            is ImportUiState.ExportSuccess -> {
+                ExportSuccessContent(
+                    filePath = state.filePath,
+                    onDone = { viewModel.reset() },
+                    modifier = Modifier.padding(paddingValues)
+                )
             }
             is ImportUiState.Preview -> {
                 PreviewContent(
@@ -124,7 +145,12 @@ fun ImportScreen(
 }
 
 @Composable
-private fun IdleContent(onSelectFile: () -> Unit, modifier: Modifier = Modifier) {
+private fun IdleContent(
+    onSelectFile: () -> Unit,
+    onExport: () -> Unit,
+    onRestoreBackup: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -155,6 +181,34 @@ private fun IdleContent(onSelectFile: () -> Unit, modifier: Modifier = Modifier)
         Spacer(modifier = Modifier.height(32.dp))
         Button(onClick = onSelectFile) {
             Text("选择 CSV 文件")
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+        @Suppress("DEPRECATION")
+        Divider()
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = "备份与恢复",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "导出全部数据到 JSON 文件\n或从备份文件恢复数据（覆盖）",
+            style = MaterialTheme.typography.bodySmall,
+            color = TextSecondary,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedButton(onClick = onExport) {
+                Text("导出数据")
+            }
+            OutlinedButton(onClick = onRestoreBackup) {
+                Text("恢复备份")
+            }
         }
     }
 }
@@ -435,6 +489,52 @@ private fun ErrorContent(message: String, onRetry: () -> Unit, modifier: Modifie
         Spacer(modifier = Modifier.height(32.dp))
         Button(onClick = onRetry) {
             Text("重新选择文件")
+        }
+    }
+}
+
+@Composable
+private fun ExportingContent(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        CircularProgressIndicator()
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(text = "正在导出数据...", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+    }
+}
+
+@Composable
+private fun ExportSuccessContent(filePath: String, onDone: () -> Unit, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.Check,
+            contentDescription = null,
+            modifier = Modifier.size(64.dp),
+            tint = Primary
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(text = "导出成功!", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "文件已保存到:\n$filePath",
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextSecondary,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(32.dp))
+        Button(onClick = onDone) {
+            Text("完成")
         }
     }
 }

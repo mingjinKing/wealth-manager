@@ -7,6 +7,9 @@ import com.wealth.manager.data.dao.AssetDao
 import com.wealth.manager.data.dao.BudgetDao
 import com.wealth.manager.data.dao.CategoryDao
 import com.wealth.manager.data.dao.ExpenseDao
+import com.wealth.manager.data.dao.MemoryDao
+import com.wealth.manager.data.dao.MessageDao
+import com.wealth.manager.data.dao.SessionDao
 import com.wealth.manager.data.dao.WeekStatsDao
 import dagger.Module
 import dagger.Provides
@@ -59,5 +62,23 @@ object DatabaseModule {
     @Singleton
     fun provideBudgetDao(database: AppDatabase): BudgetDao {
         return database.budgetDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideSessionDao(database: AppDatabase): SessionDao {
+        return database.sessionDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideMessageDao(database: AppDatabase): MessageDao {
+        return database.messageDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideMemoryDao(database: AppDatabase): MemoryDao {
+        return database.memoryDao()
     }
 }

@@ -13,9 +13,15 @@ import androidx.room.PrimaryKey
             parentColumns = ["id"],
             childColumns = ["categoryId"],
             onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = AssetEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["assetId"],
+            onDelete = ForeignKey.SET_NULL
         )
     ],
-    indices = [Index("categoryId"), Index("date")]
+    indices = [Index("categoryId"), Index("date"), Index("assetId")]
 )
 data class ExpenseEntity(
     @PrimaryKey(autoGenerate = true)
@@ -24,5 +30,6 @@ data class ExpenseEntity(
     val categoryId: Long,
     val date: Long,
     val note: String = "",
+    val assetId: Long? = null, // 关联账户，可为空
     val createdAt: Long = System.currentTimeMillis()
 )

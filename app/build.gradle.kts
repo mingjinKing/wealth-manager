@@ -14,7 +14,7 @@ android {
         minSdk = 24
         targetSdk = 34
         versionCode = 1
-        versionName = "1.0.0"
+        versionName = "1.0.4"
 
         // LLM API Key from gradle.properties (gradle.properties 不上传，仅本地开发使用)
         val llmApiKey = project.findProperty("LLM_API_KEY")?.toString() ?: ""
@@ -98,6 +98,8 @@ dependencies {
 
     // Security Crypto for EncryptedSharedPreferences
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
+
 
     // Testing
     testImplementation("junit:junit:4.13.2")
