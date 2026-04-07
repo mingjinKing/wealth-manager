@@ -142,28 +142,33 @@ class HowToSpendViewModel @Inject constructor(
             isHistoryMode = false
         )
 
+        // 确保 sessionId 先准备好，再进行后续操作
+        val sessionId = _state.value.sessionId.ifEmpty { UUID.randomUUID().toString() }
+        _state.value = _state.value.copy(sessionId = sessionId)
+        
         // 保存到 SQLite（短期记忆）
         viewModelScope.launch {
-            val sessionId = _state.value.sessionId.ifEmpty { UUID.randomUUID().toString() }
-            _state.value = _state.value.copy(sessionId = sessionId)
-            
-            // 确保会话存在
-            conversationStorage.getSession(sessionId) ?: conversationStorage.createSession(sessionId)
-            
-            // 保存用户消息到 SQLite + FTS
-            val savedMsg = conversationStorage.addMessage(
-                sessionId = sessionId,
-                content = text,
-                isUser = true
-            )
-            // 索引到 FTS
-            memoryRetriever.indexMessage(
-                messageId = savedMsg.id,
-                sessionId = sessionId,
-                content = text,
-                isUser = true,
-                createdAt = savedMsg.createdAt
-            )
+            try {
+                // 确保会话存在
+                conversationStorage.getSession(sessionId) ?: conversationStorage.createSession(sessionId)
+                
+                // 保存用户消息到 SQLite + FTS
+                val savedMsg = conversationStorage.addMessage(
+                    sessionId = sessionId,
+                    content = text,
+                    isUser = true
+                )
+                // 索引到 FTS
+                memoryRetriever.indexMessage(
+                    messageId = savedMsg.id,
+                    sessionId = sessionId,
+                    content = text,
+                    isUser = true,
+                    createdAt = savedMsg.createdAt
+                )
+            } catch (e: Exception) {
+                reportError("howtospend_save", e.stackTraceToString())
+            }
         }
 
         // 保存到当前 Session 文件（用于切换 tab 恢复）
@@ -245,7 +250,7 @@ class HowToSpendViewModel @Inject constructor(
                 addToHistory()
             } catch (e: Exception) {
                 // 报告错误到服务器（异步，不阻塞 UI）
-                viewModelScope.launch { reportError("howtospend_stream", e.message ?: "") }
+                viewModelScope.launch { reportError("howtospend_stream", e) }
                 // 友好提示
                 val friendlyMsg = when {
                     e.message?.contains("timeout", true) == true ->
@@ -609,14 +614,19 @@ class HowToSpendViewModel @Inject constructor(
             // FTS5 检索相关历史消息（短期记忆检索）
             val userQuery = conversationHistory.lastOrNull()?.content ?: ""
             if (userQuery.isNotBlank()) {
-                val relevantMessages = memoryRetriever.search(userQuery, topK = 5)
-                if (relevantMessages.isNotEmpty()) {
-                    appendLine("=== 相关历史对话（参考）===")
-                    relevantMessages.forEach { result ->
-                        val role = if (result.isUser) "用户" else "旺财"
-                        appendLine("[$role] ${result.content.take(150)}")
+                try {
+                    val relevantMessages = memoryRetriever.search(userQuery, topK = 5)
+                    if (relevantMessages.isNotEmpty()) {
+                        appendLine("=== 相关历史对话（参考）===")
+                        relevantMessages.forEach { result ->
+                            val role = if (result.isUser) "用户" else "旺财"
+                            appendLine("[$role] ${result.content.take(150)}")
+                        }
+                        appendLine()
                     }
-                    appendLine()
+                } catch (e: Exception) {
+                    // FTS 检索失败不影响主流程
+                    e.printStackTrace()
                 }
             }
             
@@ -749,8 +759,12 @@ class HowToSpendViewModel @Inject constructor(
     }
 
     /**
-     * 上报错误到服务器
+     * 上报错误到服务器（包含完整堆栈）
      */
+    private suspend fun reportError(type: String, error: Throwable) {
+        reportError(type, error.stackTraceToString())
+    }
+    
     private suspend fun reportError(type: String, message: String) {
         withContext(Dispatchers.IO) {
             try {

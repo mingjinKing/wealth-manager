@@ -26,10 +26,15 @@ class ConversationStorage @Inject constructor(
     /**
      * 创建新会话
      */
-    suspend fun createSession(title: String = ""): SessionEntity {
+    /**
+     * 创建新会话
+     * @param sessionId 会话 ID（如果为空则自动生成）
+     * @param title 会话标题
+     */
+    suspend fun createSession(sessionId: String = UUID.randomUUID().toString(), title: String = ""): SessionEntity {
         val now = System.currentTimeMillis()
         val session = SessionEntity(
-            id = UUID.randomUUID().toString(),
+            id = sessionId,
             title = title.ifEmpty { "新会话" },
             createdAt = now,
             updatedAt = now
