@@ -1,5 +1,7 @@
 package com.wealth.manager.data
 
+import android.util.Log
+
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -47,20 +49,31 @@ class MemoryRefiner @Inject constructor(
     suspend fun refineMemory(forceRefine: Boolean = false) {
         // 获取最近的对话
         val recentMessages = conversationStorage.getRecentUserMessages(limit = 50)
-        if (recentMessages.isEmpty()) return
+        android.util.Log.d("MemoryRefiner", "提炼记忆: 找到 ${recentMessages.size} 条用户消息")
+        if (recentMessages.isEmpty()) {
+            android.util.Log.d("MemoryRefiner", "提炼失败: 没有用户消息")
+            return
+        }
         
         // 构建分析 prompt
         val prompt = buildAnalysisPrompt(recentMessages.map { it.content })
         
         // 调用 AI 分析
-        val analysisResult = callAIAnalysis(prompt) ?: return
+        val analysisResult = callAIAnalysis(prompt)
+        if (analysisResult == null) {
+            android.util.Log.d("MemoryRefiner", "提炼失败: AI 未返回结果")
+            return
+        }
+        android.util.Log.d("MemoryRefiner", "AI 返回: ${analysisResult.take(200)}")
         
         // 解析 AI 返回的结构化洞察
         val memories = parseAnalysisResult(analysisResult)
+        android.util.Log.d("MemoryRefiner", "解析出 ${memories.size} 条记忆")
         if (memories.isEmpty()) return
         
         // 合并到 memory 表
         mergeMemories(memories)
+        android.util.Log.d("MemoryRefiner", "提炼成功: ${memories.size} 条记忆已合并")
     }
     
     /**

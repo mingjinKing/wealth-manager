@@ -9,9 +9,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
@@ -31,7 +33,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.wealth.manager.BuildConfig
 import com.wealth.manager.ui.navigation.Screen
+import com.wealth.manager.util.LogCollector
 import com.wealth.manager.ui.theme.*
 import java.io.File
 
@@ -236,6 +240,7 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .padding(16.dp)
+                .verticalScroll(rememberScrollState())
         ) {
             Text(
                 text = "个性化",
@@ -498,6 +503,82 @@ fun SettingsScreen(
                             checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
                         )
                     )
+                }
+            }
+
+            // ===== 调试工具区域（仅测试版本显示） =====
+            if (BuildConfig.DEBUG) {
+                val ctx = LocalContext.current
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    text = "调试工具",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Surface)
+                ) {
+                    var isUploading by remember { mutableStateOf(false) }
+                    var uploadResult by remember { mutableStateOf<String?>(null) }
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "上传调试日志",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    text = "将本机运行日志上传到服务器，帮助定位问题",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = TextSecondary
+                                )
+                            }
+                            Button(
+                                onClick = {
+                                    isUploading = true
+                                    uploadResult = null
+                                    val deviceId = android.provider.Settings.Secure.getString(ctx.contentResolver, android.provider.Settings.Secure.ANDROID_ID)
+                                    LogCollector.uploadAll(ctx, deviceId) { success: Boolean, msg: String ->
+                                        isUploading = false
+                                        uploadResult = msg
+                                    }
+                                },
+                                enabled = !isUploading,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.tertiary
+                                )
+                            ) {
+                                if (isUploading) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        color = MaterialTheme.colorScheme.onTertiary,
+                                        strokeWidth = 2.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("上传中...")
+                                } else {
+                                    Text("${LogCollector.getSummary()}")
+                                }
+                            }
+                        }
+                        if (uploadResult != null) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = uploadResult!!,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (uploadResult!!.contains("成功")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
                 }
             }
         }
