@@ -1,6 +1,6 @@
 # 知财 (Wealth Manager) - 技术规格说明书
 
-> 版本：v2.5 | 更新：2026-04-08 | 状态：**v1.0 已上线**
+> 版本：v2.6 | 更新：2026-04-08 | 状态：**v1.0 已上线**
 
 ---
 
@@ -157,14 +157,15 @@
 | 记账页 | `/add` | 新建账单 |
 | 记账页（带ID）| `/add/{expenseId}` | 编辑账单 |
 | 透视页 | `/insights` | 算算账 Tab |
-| 成就页 | `/achievements` | 进阶 Tab |
+| 怎么花 | `/how-to-spend` | AI 对话式消费建议 |
+| 成就页 | `/achievements` | 攒点钱 Tab |
 | 资产管理 | `/assets` | 侧边抽屉 |
 | 分类管理 | `/categories` | 侧边抽屉 |
 | 导入数据 | `/import` | 侧边抽屉 |
 | 设置页 | `/settings` | 主题颜色设置 |
 | 怎么花 | `/how` | AI 对话式消费建议 |
 
-**BottomNav 3栏**：🏠 首页 / 💡 算算账 / ⭐ 进阶
+**BottomNav 4栏**（以代码为准）：🏠 记记账 / 💡 算算账 / 💡 怎么花 / ⭐ 攒点钱
 
 ---
 
@@ -228,6 +229,7 @@ wow_triggered = savedAmount > ¥100 AND savedAmount > last_4_week_avg × 20%
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| **v2.6** | 2026-04-08 | 文档修正：BottomNav 4栏（记记账/算算账/怎么花/攒点钱），路由 /how → /how-to-spend |
 | **v2.5** | 2026-04-08 | 新增本地记忆系统：FTS5/FTS4+向量检索、RRF 融合、FactExtractor AI 提取；Room 数据库升至 9 张表 |
 | **v2.5** | 2026-04-05 | 新增怎么花页面（HowToSpendScreen）；新增设置页面（SettingsScreen，主题颜色切换）；完善导入数据页面（ImportScreen）功能 |
 | **v2.4** | 2026-04-04 | 旺财 Micro Agent v1.9.1 上线（DeepSeek-v3.2 + 工具系统 + 规则引擎模块化）；透视页 AI 复盘功能上线 |
