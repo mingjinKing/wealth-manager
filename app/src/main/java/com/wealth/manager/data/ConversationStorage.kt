@@ -4,9 +4,13 @@ import com.wealth.manager.data.dao.MessageDao
 import com.wealth.manager.data.dao.SessionDao
 import com.wealth.manager.data.entity.MessageEntity
 import com.wealth.manager.data.entity.SessionEntity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
 import java.util.UUID
 import javax.inject.Inject
+import javax.inject.Provider
 import javax.inject.Singleton
 
 /**
@@ -20,7 +24,9 @@ import javax.inject.Singleton
 @Singleton
 class ConversationStorage @Inject constructor(
     private val sessionDao: SessionDao,
-    private val messageDao: MessageDao
+    private val messageDao: MessageDao,
+    private val memoryRetriever: MemoryRetriever,
+    private val factExtractorProvider: Provider<FactExtractor>  // 懒加载，避免循环依赖
 ) {
     
     /**
@@ -104,6 +110,36 @@ class ConversationStorage @Inject constructor(
             sessionDao.update(session.copy(updatedAt = System.currentTimeMillis()))
         }
         
+        // 异步生成并存储向量（用于记忆检索）
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                memoryRetriever.indexMessageVector(message.id, content)
+            } catch (e: Exception) {
+                // 向量生成失败不影响主流程
+                android.util.Log.e("ConversationStorage", "向量索引失败: ${e.message}")
+            }
+        }
+        
+        // 异步索引到 FTS/fallback 表（用于关键词搜索）
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                memoryRetriever.indexMessage(message.id, sessionId, content, isUser, message.createdAt)
+            } catch (e: Exception) {
+                android.util.Log.e("ConversationStorage", "FTS 索引失败: ${e.message}")
+            }
+        }
+
+        // AI 消息写入后，触发关键信息提取（异步，不阻塞）
+        if (!isUser && content.isNotBlank()) {
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    factExtractorProvider.get().extractFromAiResponse(content, sessionId)
+                } catch (e: Exception) {
+                    android.util.Log.e("ConversationStorage", "事实提取触发失败: ${e.message}")
+                }
+            }
+        }
+
         return message
     }
     
@@ -154,6 +190,46 @@ class ConversationStorage @Inject constructor(
      */
     suspend fun getSessionCount(): Int {
         return sessionDao.getSessionCount()
+    }
+    
+    /**
+     * 迁移历史消息的向量索引
+     * 一次性处理所有历史用户消息，生成并存储向量
+     * @param progressCallback 每处理完一条回调一次，用于 UI 进度显示
+     * @return 成功处理的条数
+     */
+    suspend fun migrateHistoricalMessagesVectors(
+        progressCallback: ((current: Int, total: Int) -> Unit)? = null
+    ): Int {
+        // 获取所有历史消息（一次性）
+        val allMessages = messageDao.getRecentMessages(limit = 10000)
+            .filter { it.isUser && it.content.isNotBlank() }
+        
+        if (allMessages.isEmpty()) return 0
+        
+        var successCount = 0
+        val total = allMessages.size
+        
+        for ((index, message) in allMessages.withIndex()) {
+            try {
+                // 检查是否已有向量（幂等）
+                val hasVector = memoryRetriever.hasVectorForMessage(message.id)
+                if (!hasVector) {
+                    val indexed = memoryRetriever.indexMessageVector(message.id, message.content)
+                    if (indexed) successCount++
+                } else {
+                    // 已有向量，跳过
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ConversationStorage", "迁移消息向量失败: ${e.message}")
+            }
+            
+            // 回调查询进度
+            progressCallback?.invoke(index + 1, total)
+        }
+        
+        android.util.Log.d("ConversationStorage", "历史消息向量迁移完成: $successCount/$total")
+        return successCount
     }
     
     /**

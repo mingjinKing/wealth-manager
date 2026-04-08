@@ -12,12 +12,16 @@ import androidx.lifecycle.viewModelScope
 import com.wealth.manager.agent.AppInitializer
 import com.wealth.manager.agent.WangcaiAgent
 import com.wealth.manager.data.ConversationStorage
+import com.wealth.manager.data.FactExtractor
 import com.wealth.manager.data.MemoryRefiner
 import com.wealth.manager.data.MemoryRetriever
 import com.wealth.manager.data.dao.AssetDao
 import com.wealth.manager.data.dao.ExpenseDao
+import com.wealth.manager.data.entity.AssetEntity
+import com.wealth.manager.data.entity.ExpenseEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -42,7 +46,11 @@ data class HowToSpendState(
     val inputText: String = "",
     val currentThinking: String = "",
     val sessionId: String = "",
-    val isHistoryMode: Boolean = false
+    val isHistoryMode: Boolean = false,
+    val ftsModeInfo: String = "",  // FTS 诊断信息（调试用）
+    // 缓存的财务数据（同 session 内复用，避免每次查询数据库）
+    val cachedAllExpenses: List<ExpenseEntity>? = null,
+    val cachedAssets: List<AssetEntity>? = null
 )
 
 data class ChatMessage(
@@ -70,6 +78,7 @@ class HowToSpendViewModel @Inject constructor(
     private val conversationStorage: ConversationStorage,
     private val memoryRetriever: MemoryRetriever,
     private val memoryRefiner: MemoryRefiner,
+    private val factExtractor: FactExtractor,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -92,11 +101,22 @@ class HowToSpendViewModel @Inject constructor(
     }
     
     init {
-        // 初始化 FTS 索引（捕获异常防止闪退）
+        // 异步初始化 FTS 索引（避免阻塞 UI）
+        viewModelScope.launch {
+            try {
+                memoryRetriever.initializeFtsTable()
+            } catch (e: Exception) {
+                GlobalScope.launch { reportError("howtospend_init", e) }
+                e.printStackTrace()
+            }
+        }
+        
+        // 更新 FTS 模式诊断信息（可能抛异常，确保上报）
         try {
-            memoryRetriever.initializeFtsTable()
+            _state.value = _state.value.copy(ftsModeInfo = memoryRetriever.getDiagnosticInfo())
         } catch (e: Exception) {
-            e.printStackTrace()
+            GlobalScope.launch { reportError("howtospend_diagnostic", e) }
+            _state.value = _state.value.copy(ftsModeInfo = "诊断失败")
         }
         
         // Activity 级别 ViewModel：只要 ViewModel 存在，内存状态就保持
@@ -111,6 +131,20 @@ class HowToSpendViewModel @Inject constructor(
                 memoryRefiner.refineMemory()
             } catch (e: Exception) {
                 e.printStackTrace()
+            }
+        }
+        // 一次性迁移历史消息向量（只在首次启动时执行）
+        val vectorsMigrated = profilePrefs.getBoolean("vectors_migrated", false)
+        if (!vectorsMigrated && memoryRetriever.getVectorCount() == 0) {
+            viewModelScope.launch {
+                try {
+                    val count = conversationStorage.migrateHistoricalMessagesVectors()
+                    android.util.Log.d("HowToSpendVM", "历史消息向量迁移完成: $count 条")
+                } catch (e: Exception) {
+                    android.util.Log.e("HowToSpendVM", "迁移失败: ${e.message}")
+                } finally {
+                    profilePrefs.edit().putBoolean("vectors_migrated", true).apply()
+                }
             }
         }
     }
@@ -167,7 +201,7 @@ class HowToSpendViewModel @Inject constructor(
                     createdAt = savedMsg.createdAt
                 )
             } catch (e: Exception) {
-                reportError("howtospend_save", e.stackTraceToString())
+                GlobalScope.launch { reportError("howtospend_save", e.stackTraceToString()) }
             }
         }
 
@@ -181,6 +215,15 @@ class HowToSpendViewModel @Inject constructor(
                 if (existingMessages.isEmpty()) {
                     wangcaiAgent.clearContext()
                     appInitializer.refreshAppData()
+                    // 填充财务数据缓存（全新 session 只查一次）
+                    withContext(Dispatchers.IO) {
+                        val allExpenses = expenseDao.getAllExpenses().first()
+                        val assets = assetDao.getAllAssets().first()
+                        _state.value = _state.value.copy(
+                            cachedAllExpenses = allExpenses,
+                            cachedAssets = assets
+                        )
+                    }
                 }
 
                 // 构建系统上下文（包含对话历史 + FTS5 检索）
@@ -249,8 +292,8 @@ class HowToSpendViewModel @Inject constructor(
                 saveCurrentSession()
                 addToHistory()
             } catch (e: Exception) {
-                // 报告错误到服务器（异步，不阻塞 UI）
-                viewModelScope.launch { reportError("howtospend_stream", e) }
+                // 报告错误到服务器（独立于 ViewModel 生命周期，确保发出去）
+                GlobalScope.launch { reportError("howtospend_stream", e) }
                 // 友好提示
                 val friendlyMsg = when {
                     e.message?.contains("timeout", true) == true ->
@@ -366,7 +409,9 @@ class HowToSpendViewModel @Inject constructor(
                             sessionId = sessionId,
                             isHistoryMode = true,
                             isLoading = false,
-                            currentThinking = ""
+                            currentThinking = "",
+                            cachedAllExpenses = null,  // 清空缓存，切换 session 后重新查询
+                            cachedAssets = null
                         )
                     } catch (e: Exception) {
                         e.printStackTrace()
@@ -558,8 +603,12 @@ class HowToSpendViewModel @Inject constructor(
                 // 更新历史索引
                 updateHistoryIndex(sessionId, title, timestamp, messages.size)
 
-                // 触发记忆提炼（长期记忆更新）
-                memoryRefiner.refineMemory()
+                // 触发记忆提炼（长期记忆更新，单独 try-catch 防止异常打断对话流程）
+                try {
+                    memoryRefiner.refineMemory()
+                } catch (e: Exception) {
+                    e.printStackTrace()  // 记忆提炼失败不影响对话
+                }
             }
         }
     }
@@ -611,11 +660,29 @@ class HowToSpendViewModel @Inject constructor(
                 appendLine()
             }
             
-            // FTS5 检索相关历史消息（短期记忆检索）
+            // 混合检索相关历史消息（短期记忆，RRF 融合 FTS4 + 向量）
             val userQuery = conversationHistory.lastOrNull()?.content ?: ""
             if (userQuery.isNotBlank()) {
                 try {
-                    val relevantMessages = memoryRetriever.search(userQuery, topK = 5)
+                    // 上报检索前的诊断信息
+                    val diagBefore = buildString {
+                        append("FTS诊断: ${memoryRetriever.getDiagnosticInfo()}\n")
+                        append("向量数量: ${memoryRetriever.getVectorCount()}\n")
+                    }
+                    GlobalScope.launch { reportError("howtospend_diag_before", diagBefore) }
+                    
+                    val relevantMessages = memoryRetriever.searchHybrid(userQuery, topK = 5)
+                    
+                    // 调试日志：上报检索结果到服务器
+                    val debugInfo = buildString {
+                        append("query=$userQuery\n")
+                        append("results_count=${relevantMessages.size}\n")
+                        relevantMessages.take(5).forEachIndexed { index, r ->
+                            append("result[$index]={isUser=${r.isUser}, content=${r.content.take(80)}}\n")
+                        }
+                    }
+                    GlobalScope.launch { reportError("howtospend_search_debug", debugInfo) }
+                    
                     if (relevantMessages.isNotEmpty()) {
                         appendLine("=== 相关历史对话（参考）===")
                         relevantMessages.forEach { result ->
@@ -625,14 +692,23 @@ class HowToSpendViewModel @Inject constructor(
                         appendLine()
                     }
                 } catch (e: Exception) {
-                    // FTS 检索失败不影响主流程
+                    // 混合检索失败不影响主流程（fallback 到无记忆）
+                    GlobalScope.launch { reportError("howtospend_search_error", e) }
                     e.printStackTrace()
                 }
             }
             
-            // 获取用户财务数据
-            val allExpenses = expenseDao.getAllExpenses().first()
-            val assets = assetDao.getAllAssets().first()
+            // 获取用户财务数据（优先使用缓存，同 session 内不重复查询）
+            val allExpenses = _state.value.cachedAllExpenses ?: withContext(Dispatchers.IO) {
+                expenseDao.getAllExpenses().first().also {
+                    _state.value = _state.value.copy(cachedAllExpenses = it)
+                }
+            }
+            val assets = _state.value.cachedAssets ?: withContext(Dispatchers.IO) {
+                assetDao.getAllAssets().first().also {
+                    _state.value = _state.value.copy(cachedAssets = it)
+                }
+            }
 
             // 近30天消费（用于计算近期月均）
             val now = System.currentTimeMillis()
@@ -754,6 +830,12 @@ class HowToSpendViewModel @Inject constructor(
             val memorySummary = memoryRefiner.buildMemorySummary()
             if (memorySummary.isNotEmpty()) {
                 append(memorySummary)
+            }
+
+            // 注入关键信息提取的事实（来自 AI 自动提炼）
+            val factsSummary = factExtractor.buildFactsSummary()
+            if (factsSummary.isNotEmpty()) {
+                append(factsSummary)
             }
         }
     }

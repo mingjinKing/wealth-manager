@@ -14,6 +14,7 @@ import com.wealth.manager.data.entity.AssetEntity
 import com.wealth.manager.data.entity.BudgetEntity
 import com.wealth.manager.data.entity.CategoryEntity
 import com.wealth.manager.data.entity.ExpenseEntity
+import com.wealth.manager.data.entity.ExtractedFactEntity
 import com.wealth.manager.data.entity.MemoryEntity
 import com.wealth.manager.data.entity.MessageEntity
 import com.wealth.manager.data.entity.SessionEntity
@@ -28,9 +29,10 @@ import com.wealth.manager.data.entity.WeekStatsEntity
         BudgetEntity::class,
         SessionEntity::class,
         MessageEntity::class,
-        MemoryEntity::class
+        MemoryEntity::class,
+        ExtractedFactEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -42,6 +44,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun sessionDao(): SessionDao
     abstract fun messageDao(): MessageDao
     abstract fun memoryDao(): MemoryDao
+    abstract fun extractedFactDao(): com.wealth.manager.data.dao.ExtractedFactDao
 
     companion object {
         const val DATABASE_NAME = "wealth_manager_db"
