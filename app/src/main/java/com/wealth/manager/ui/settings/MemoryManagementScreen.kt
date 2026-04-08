@@ -7,7 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,30 +24,48 @@ fun MemoryManagementScreen(
 ) {
     val state by viewModel.state.collectAsState()
     var showClearConfirmDialog by remember { mutableStateOf(false) }
+    var showRebuildConfirmDialog by remember { mutableStateOf(false) }
 
-    // 清除确认弹窗
+    LaunchedEffect(state.snackbarMessage) {
+        if (state.snackbarMessage != null) {
+            kotlinx.coroutines.delay(4000)
+            viewModel.clearSnackbar()
+        }
+    }
+
     if (showClearConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showClearConfirmDialog = false },
             title = { Text("清除所有记忆") },
-            text = { Text("确定要清除所有记忆吗？清除后无法恢复，AI 将重新学习你的对话历史。") },
+            text = { Text("确定要清除所有记忆吗？清除后无法恢复。") },
             confirmButton = {
                 TextButton(
                     onClick = {
                         viewModel.clearAllMemories()
                         showClearConfirmDialog = false
                     },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text("清除")
-                }
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) { Text("清除") }
             },
             dismissButton = {
-                TextButton(onClick = { showClearConfirmDialog = false }) {
-                    Text("取消")
-                }
+                TextButton(onClick = { showClearConfirmDialog = false }) { Text("取消") }
+            }
+        )
+    }
+
+    if (showRebuildConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showRebuildConfirmDialog = false },
+            title = { Text("确认重建记忆") },
+            text = { Text("确认重建？将清空现有所有记忆，从历史对话中重新提炼。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showRebuildConfirmDialog = false
+                    viewModel.rebuildMemories()
+                }) { Text("重建") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRebuildConfirmDialog = false }) { Text("取消") }
             }
         )
     }
@@ -55,23 +73,19 @@ fun MemoryManagementScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { 
-                    Text("记忆管理")
-                },
+                title = { Text("记忆管理") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                     }
                 },
                 actions = {
-                    // 刷新记忆 (改为调用同步并提炼)
                     IconButton(
-                        onClick = { viewModel.syncAndRefine() },
+                        onClick = { showRebuildConfirmDialog = true },
                         enabled = !state.isLoading
                     ) {
-                        Icon(Icons.Default.Refresh, contentDescription = "刷新并同步记忆")
+                        Icon(Icons.Default.RestartAlt, contentDescription = "记忆重建")
                     }
-                    // 清除全部
                     if (state.memories.isNotEmpty()) {
                         IconButton(onClick = { showClearConfirmDialog = true }) {
                             Icon(Icons.Default.DeleteSweep, contentDescription = "清除全部")
@@ -79,6 +93,16 @@ fun MemoryManagementScreen(
                     }
                 }
             )
+        },
+        snackbarHost = {
+            state.snackbarMessage?.let { msg ->
+                Snackbar(
+                    modifier = Modifier.padding(16.dp),
+                    action = {
+                        TextButton(onClick = { viewModel.clearSnackbar() }) { Text("关闭") }
+                    }
+                ) { Text(msg) }
+            }
         }
     ) { paddingValues ->
         Box(
@@ -87,12 +111,8 @@ fun MemoryManagementScreen(
                 .padding(paddingValues)
         ) {
             if (state.isLoading && state.memories.isEmpty()) {
-                // 加载中
-                CircularProgressIndicator(
-                    modifier = Modifier.align(Alignment.Center)
-                )
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             } else if (state.memories.isEmpty()) {
-                // 空状态
                 Column(
                     modifier = Modifier.align(Alignment.Center),
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -104,27 +124,23 @@ fun MemoryManagementScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "点击下方按钮同步历史对话并重新提炼",
+                        text = "点击右上角按钮重建记忆",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    OutlinedButton(
-                        onClick = { viewModel.syncAndRefine() }
-                    ) {
-                        Icon(Icons.Default.Refresh, contentDescription = null)
+                    OutlinedButton(onClick = { showRebuildConfirmDialog = true }) {
+                        Icon(Icons.Default.RestartAlt, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("同步并刷新记忆")
+                        Text("重建记忆")
                     }
                 }
             } else {
-                // 记忆列表
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // 说明
                     item {
                         Text(
                             text = "这些是 AI 从你的对话中提炼的记忆，会在「怎么花」时作为参考",
@@ -134,7 +150,6 @@ fun MemoryManagementScreen(
                         )
                         HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                     }
-
                     items(state.memories, key = { it.id }) { memory ->
                         MemoryCard(
                             memory = memory,
@@ -142,6 +157,10 @@ fun MemoryManagementScreen(
                         )
                     }
                 }
+            }
+
+            if (state.isLoading && state.memories.isNotEmpty()) {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             }
         }
     }
@@ -161,37 +180,23 @@ private fun MemoryCard(
             text = { Text("确定要删除这条记忆吗？") },
             confirmButton = {
                 TextButton(
-                    onClick = {
-                        onDelete()
-                        showDeleteConfirm = false
-                    },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text("删除")
-                }
+                    onClick = { onDelete(); showDeleteConfirm = false },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) { Text("删除") }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text("取消")
-                }
+                TextButton(onClick = { showDeleteConfirm = false }) { Text("取消") }
             }
         )
     }
 
-    Card(
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
-        ) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // 记忆标签和来源合一，更紧凑
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Surface(
                         color = MaterialTheme.colorScheme.secondaryContainer,
@@ -211,8 +216,6 @@ private fun MemoryCard(
                         color = MaterialTheme.colorScheme.outline
                     )
                 }
-                
-                // 删除小图标
                 IconButton(
                     onClick = { showDeleteConfirm = true },
                     modifier = Modifier.size(24.dp)
@@ -225,19 +228,13 @@ private fun MemoryCard(
                     )
                 }
             }
-            
             Spacer(modifier = Modifier.height(4.dp))
-            
-            // 记忆内容
             Text(
                 text = memory.summary,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium
             )
-            
             Spacer(modifier = Modifier.height(4.dp))
-            
-            // 时间和置信度
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
