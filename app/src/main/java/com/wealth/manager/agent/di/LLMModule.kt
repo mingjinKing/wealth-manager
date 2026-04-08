@@ -10,14 +10,14 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import okhttp3.ConnectionPool
+import okhttp3.Dispatcher
+import okhttp3.OkHttpClient
+import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
 /**
- * LLM 相关依赖注入模块
- *
- * API Key 获取优先级：
- * 1. BuildConfig.LLM_API_KEY（来自 gradle.properties，本地开发用）
- * 2. EncryptedSharedPreferences（安全存储，生产环境用）
+ * LLM 相关依赖注入模块 - 全局单例连接池版
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -31,72 +31,47 @@ object LLMModule {
 
     @Provides
     @Singleton
+    fun provideOkHttpClient(): OkHttpClient {
+        // 优化并发：增加最大请求数，共享连接池
+        val dispatcher = Dispatcher().apply {
+            maxRequests = 64
+            maxRequestsPerHost = 16
+        }
+        
+        return OkHttpClient.Builder()
+            .dispatcher(dispatcher)
+            .connectionPool(ConnectionPool(10, 5, TimeUnit.MINUTES))
+            .connectTimeout(20, TimeUnit.SECONDS)
+            .readTimeout(120, TimeUnit.SECONDS)
+            .writeTimeout(20, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
+            .build()
+    }
+
+    @Provides
+    @Singleton
     fun provideLLMClient(
-        @ApplicationContext context: Context
+        @ApplicationContext context: Context,
+        okHttpClient: OkHttpClient // 注入全局单例
     ): LLMClient {
         val apiKey = getApiKey(context)
         return LLMClient(
             apiKey = apiKey,
             baseUrl = BASE_URL,
-            model = MODEL
+            model = MODEL,
+            okHttpClient = okHttpClient
         )
     }
 
-    /**
-     * 获取 API Key
-     * 优先级：BuildConfig > EncryptedSharedPreferences > 空字符串
-     */
-    private fun getApiKey(context: Context): String {
-        // 1. 优先用 BuildConfig（gradle.properties，本地开发）
+    fun getApiKey(context: Context): String {
         val buildConfigKey = BuildConfig.LLM_API_KEY
         if (buildConfigKey.isNotBlank() && buildConfigKey != "your_api_key_here") {
             return buildConfigKey
         }
-
-        // 2. 兜底 EncryptedSharedPreferences（生产安全存储）
-        return loadFromSecurePrefs(context)
-    }
-
-    private fun loadFromSecurePrefs(context: Context): String {
         return try {
-            val masterKey = MasterKey.Builder(context)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                .build()
-
-            val securePrefs = EncryptedSharedPreferences.create(
-                context,
-                SECURE_PREFS_NAME,
-                masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            )
-
+            val masterKey = MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
+            val securePrefs = EncryptedSharedPreferences.create(context, SECURE_PREFS_NAME, masterKey, EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV, EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM)
             securePrefs.getString(KEY_API_KEY, "") ?: ""
-        } catch (e: Exception) {
-            ""
-        }
-    }
-
-    /**
-     * 保存 API Key 到安全存储（供生产环境或用户更换 Key 时调用）
-     */
-    fun saveApiKey(context: Context, apiKey: String) {
-        try {
-            val masterKey = MasterKey.Builder(context)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                .build()
-
-            val securePrefs = EncryptedSharedPreferences.create(
-                context,
-                SECURE_PREFS_NAME,
-                masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            )
-
-            securePrefs.edit().putString(KEY_API_KEY, apiKey).apply()
-        } catch (e: Exception) {
-            // 忽略保存失败
-        }
+        } catch (e: Exception) { "" }
     }
 }

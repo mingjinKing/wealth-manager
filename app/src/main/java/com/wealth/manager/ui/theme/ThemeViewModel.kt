@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.ViewModel
+import com.wealth.manager.util.LogCollector
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,7 +15,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ThemeViewModel @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    val logCollector: LogCollector
 ) : ViewModel() {
     private val prefs = context.getSharedPreferences("theme_prefs", Context.MODE_PRIVATE)
 
@@ -81,6 +83,10 @@ class ThemeViewModel @Inject constructor(
 
     fun verifyAssetPassword(password: String): Boolean {
         return prefs.getString("asset_password", null) == password
+    }
+
+    fun uploadLogs(deviceId: String, onComplete: (Boolean, String) -> Unit) {
+        logCollector.uploadAll(context, deviceId, onComplete)
     }
 
     override fun onCleared() {

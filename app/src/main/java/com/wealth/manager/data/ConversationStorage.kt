@@ -32,11 +32,6 @@ class ConversationStorage @Inject constructor(
     /**
      * 创建新会话
      */
-    /**
-     * 创建新会话
-     * @param sessionId 会话 ID（如果为空则自动生成）
-     * @param title 会话标题
-     */
     suspend fun createSession(sessionId: String = UUID.randomUUID().toString(), title: String = ""): SessionEntity {
         val now = System.currentTimeMillis()
         val session = SessionEntity(
@@ -133,7 +128,8 @@ class ConversationStorage @Inject constructor(
         if (!isUser && content.isNotBlank()) {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
-                    factExtractorProvider.get().extractFromAiResponse(content, sessionId)
+                    // 核心改进：统一使用更强大的 extractFromConversation 接口
+                    factExtractorProvider.get().extractFromConversation(sessionId)
                 } catch (e: Exception) {
                     android.util.Log.e("ConversationStorage", "事实提取触发失败: ${e.message}")
                 }

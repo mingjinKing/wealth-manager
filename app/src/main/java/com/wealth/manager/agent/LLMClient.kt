@@ -1,5 +1,6 @@
 package com.wealth.manager.agent
 
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -14,15 +15,19 @@ import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 /**
- * LLM 客户端 - OpenAI 兼容接口（稳定网络流式版）
+ * LLM 客户端 - 稳定性增强版 (支持 OkHttpClient 注入)
  */
 class LLMClient(
     private val apiKey: String,
     private val baseUrl: String = "https://ark.cn-beijing.volces.com/api/coding/v3",
-    private val model: String = "deepseek-v3.2"
+    private val model: String = "deepseek-v3.2",
+    private val okHttpClient: OkHttpClient? = null
 ) {
 
-    private val client = OkHttpClient.Builder()
+    private val TAG = "LLMClient"
+
+    // 如果没注入，则创建一个默认的
+    private val client = okHttpClient ?: OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(120, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
@@ -30,40 +35,13 @@ class LLMClient(
 
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
-    /**
-     * 同步/非流式对话（已自动切换到 IO 线程）
-     */
     suspend fun chat(
         messages: List<Message>,
         tools: List<ToolManifest>? = null
     ): LLMResponse = withContext(Dispatchers.IO) {
         val payload = buildJsonPayload(messages, tools, stream = false)
-
-        val request = Request.Builder()
-            .url("$baseUrl/chat/completions")
-            .addHeader("Authorization", "Bearer $apiKey")
-            .post(payload.toRequestBody(jsonMediaType))
-            .build()
-
-        val response = client.newCall(request).execute()
-        val body = response.body?.string() ?: throw LLMException("Empty response")
-
-        if (!response.isSuccessful) {
-            throw LLMException("LLM error: ${response.code} - $body")
-        }
-
-        parseResponse(body)
-    }
-
-    /**
-     * 流式对话（已自动切换到 IO 线程）
-     */
-    fun chatStream(
-        messages: List<Message>,
-        tools: List<ToolManifest>? = null
-    ): Flow<String> = flow {
-        val payload = buildJsonPayload(messages, tools, stream = true)
-
+        Log.d(TAG, "Chat request payload: $payload")
+        
         val request = Request.Builder()
             .url("$baseUrl/chat/completions")
             .addHeader("Authorization", "Bearer $apiKey")
@@ -71,27 +49,64 @@ class LLMClient(
             .build()
 
         client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw LLMException("Stream HTTP failed: ${response.code}")
+            val body = response.body?.string() ?: throw LLMException("Empty response")
+            Log.d(TAG, "Chat response body: $body")
             
-            val reader = response.body?.source() ?: return@flow
-            while (!reader.exhausted()) {
-                val line = reader.readUtf8Line() ?: break
+            if (!response.isSuccessful) throw LLMException("LLM error: ${response.code} - $body")
+            parseResponse(body)
+        }
+    }
+
+    fun chatStream(
+        messages: List<Message>,
+        tools: List<ToolManifest>? = null
+    ): Flow<String> = flow {
+        val payload = buildJsonPayload(messages, tools, stream = true)
+        Log.d(TAG, "Stream request payload: $payload")
+        
+        val request = Request.Builder()
+            .url("$baseUrl/chat/completions")
+            .addHeader("Authorization", "Bearer $apiKey")
+            .post(payload.toRequestBody(jsonMediaType))
+            .build()
+
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                val errorBody = response.body?.string()
+                Log.e(TAG, "Stream HTTP failed: ${response.code}, body: $errorBody")
+                throw LLMException("Stream HTTP failed: ${response.code}")
+            }
+            
+            val source = response.body?.source() ?: return@flow
+            while (!source.exhausted()) {
+                val line = source.readUtf8Line() ?: break
                 if (line.startsWith("data: ")) {
                     val data = line.substring(6).trim()
-                    if (data == "[DONE]") break
+                    if (data == "[DONE]") {
+                        Log.d(TAG, "Stream [DONE]")
+                        break
+                    }
                     
                     try {
                         val json = JSONObject(data)
                         val choices = json.optJSONArray("choices")
                         if (choices != null && choices.length() > 0) {
                             val delta = choices.getJSONObject(0).optJSONObject("delta")
+                            
+                            // 优先解析正文内容
                             val content = delta?.optString("content", "") ?: ""
                             if (content.isNotEmpty()) {
                                 emit(content)
+                            } else {
+                                // 兼容某些模型可能把内容放在 reasoning_content 中
+                                val reasoning = delta?.optString("reasoning_content", "") ?: ""
+                                if (reasoning.isNotEmpty()) {
+                                    // 可以在这里特殊处理思考过程，目前暂不输出到 UI 以保持简洁
+                                }
                             }
                         }
                     } catch (e: Exception) {
-                        // 忽略解析错误
+                        Log.e(TAG, "Failed to parse stream data: $data", e)
                     }
                 }
             }
@@ -133,26 +148,24 @@ class LLMClient(
     }
 
     private fun parseResponse(body: String): LLMResponse {
-        return try {
-            val jsonBody = JSONObject(body)
-            val choice = jsonBody.getJSONArray("choices").getJSONObject(0)
-            val message = choice.getJSONObject("message")
+        val jsonBody = JSONObject(body)
+        val choice = jsonBody.getJSONArray("choices").getJSONObject(0)
+        val message = choice.getJSONObject("message")
+        val content = message.optString("content", "")
 
-            if (message.has("tool_calls")) {
-                val toolCalls = message.getJSONArray("tool_calls")
-                val firstCall = toolCalls.getJSONObject(0)
-                val function = firstCall.getJSONObject("function")
-                LLMResponse.ToolCall(
-                    id = firstCall.getString("id"),
-                    toolName = function.getString("name"),
-                    arguments = function.getString("arguments"),
-                    fullToolCalls = toolCalls
-                )
-            } else {
-                LLMResponse.Text(message.optString("content", ""))
-            }
-        } catch (e: Exception) {
-            throw LLMException("Parse error: $body", e)
+        return if (message.has("tool_calls")) {
+            val toolCalls = message.getJSONArray("tool_calls")
+            val firstCall = toolCalls.getJSONObject(0)
+            val function = firstCall.getJSONObject("function")
+            LLMResponse.ToolCall(
+                id = firstCall.getString("id"),
+                toolName = function.getString("name"),
+                arguments = function.getString("arguments"),
+                fullToolCalls = toolCalls,
+                content = content // 保存中间引导语
+            )
+        } else {
+            LLMResponse.Text(content)
         }
     }
 }
@@ -170,7 +183,8 @@ sealed class LLMResponse {
         val id: String,
         val toolName: String,
         val arguments: String,
-        val fullToolCalls: JSONArray
+        val fullToolCalls: JSONArray,
+        val content: String? = null // 新增可选内容字段
     ) : LLMResponse()
 }
 

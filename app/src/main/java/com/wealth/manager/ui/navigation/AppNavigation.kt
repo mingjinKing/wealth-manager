@@ -105,7 +105,7 @@ data class BottomNavItem(
 
 val bottomNavItems = listOf(
     BottomNavItem(
-        label = "首页",
+        label = "记记账",
         selectedIcon = Icons.Filled.Home,
         unselectedIcon = Icons.Outlined.Home,
         route = Screen.Dashboard.route
@@ -123,7 +123,7 @@ val bottomNavItems = listOf(
         route = Screen.How.route
     ),
     BottomNavItem(
-        label = "进阶",
+        label = "攒点钱",
         selectedIcon = Icons.Filled.Star,
         unselectedIcon = Icons.Outlined.Star,
         route = Screen.Achievements.route
@@ -269,20 +269,14 @@ fun AppNavigation() {
                     Spacer(modifier = Modifier.height(12.dp))
 
                     drawerMenuItems.forEach { item ->
-                        val needsPassword = item.route == Screen.AssetManage.route && assetPasswordProtection
+                        // 修改：取消侧边栏对资产管理的强拦截，改为直接进入
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    if (needsPassword) {
-                                        scope.launch { drawerState.close() }
-                                        pendingAssetRoute = item.route
-                                        showAssetPasswordDialog = true
-                                    } else {
-                                        scope.launch { drawerState.close() }
-                                        navController.navigate(item.route) {
-                                            launchSingleTop = true
-                                        }
+                                    scope.launch { drawerState.close() }
+                                    navController.navigate(item.route) {
+                                        launchSingleTop = true
                                     }
                                 }
                                 .background(

@@ -58,10 +58,11 @@ fun AchievementsScreen(
     var showHelpDialog by remember { mutableStateOf(false) }
     var showTrendHelp by remember { mutableStateOf(false) }
 
-    // 密码验证弹窗（资产可见性切换前）
+    // 密码验证弹窗状态
     var showAssetPasswordDialog by remember { mutableStateOf(false) }
     var assetPasswordInput by remember { mutableStateOf("") }
     var assetPasswordError by remember { mutableStateOf<String?>(null) }
+    var pendingToggleAction by remember { mutableStateOf<(() -> Unit)?>(null) }
 
     if (showAssetPasswordDialog) {
         AlertDialog(
@@ -69,11 +70,12 @@ fun AchievementsScreen(
                 showAssetPasswordDialog = false
                 assetPasswordInput = ""
                 assetPasswordError = null
+                pendingToggleAction = null
             },
             title = { Text("请输入密码") },
             text = {
                 Column {
-                    Text("查看资产金额需要密码验证", style = MaterialTheme.typography.bodyMedium)
+                    Text("查看隐藏数据需要密码验证", style = MaterialTheme.typography.bodyMedium)
                     Spacer(modifier = Modifier.height(12.dp))
                     TextField(
                         value = assetPasswordInput,
@@ -101,7 +103,8 @@ fun AchievementsScreen(
                             showAssetPasswordDialog = false
                             assetPasswordInput = ""
                             assetPasswordError = null
-                            viewModel.toggleAssetVisibility()
+                            pendingToggleAction?.invoke()
+                            pendingToggleAction = null
                         } else {
                             assetPasswordError = "密码错误"
                         }
@@ -116,6 +119,7 @@ fun AchievementsScreen(
                         showAssetPasswordDialog = false
                         assetPasswordInput = ""
                         assetPasswordError = null
+                        pendingToggleAction = null
                     }
                 ) {
                     Text("取消")
@@ -127,7 +131,7 @@ fun AchievementsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(text = "成长", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
+                title = { Text(text = "攒点钱", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
                 actions = {
                     IconButton(onClick = { showHelpDialog = true }) {
                         Icon(imageVector = Icons.AutoMirrored.Filled.HelpOutline, contentDescription = "帮助")
@@ -157,7 +161,8 @@ fun AchievementsScreen(
                         netWorth = state.netWorth,
                         isVisible = state.isAssetVisible,
                         onToggleVisibility = {
-                            if (assetPasswordProtection) {
+                            if (!state.isAssetVisible && assetPasswordProtection) {
+                                pendingToggleAction = { viewModel.toggleAssetVisibility() }
                                 showAssetPasswordDialog = true
                             } else {
                                 viewModel.toggleAssetVisibility()
@@ -180,7 +185,14 @@ fun AchievementsScreen(
                         progress = (state.netWorth / state.assetGoal).coerceAtMost(1.0).toFloat(),
                         timeProgress = timeProgress,
                         isVisible = state.isAssetVisible && state.isGoalVisible,
-                        onToggleVisibility = { viewModel.toggleGoalVisibility() },
+                        onToggleVisibility = {
+                            if (!(state.isAssetVisible && state.isGoalVisible) && assetPasswordProtection) {
+                                pendingToggleAction = { viewModel.toggleGoalVisibility() }
+                                showAssetPasswordDialog = true
+                            } else {
+                                viewModel.toggleGoalVisibility()
+                            }
+                        },
                         onClick = { showAssetGoalSheet = true }
                     )
                 }
@@ -200,7 +212,14 @@ fun AchievementsScreen(
                         progress = budgetProgress.coerceAtMost(1f),
                         progressColor = if (budgetProgress > 0.9f) Warning else MaterialTheme.colorScheme.primary,
                         isVisible = state.isAssetVisible && state.isBudgetVisible,
-                        onToggleVisibility = { viewModel.toggleBudgetVisibility() },
+                        onToggleVisibility = {
+                            if (!(state.isAssetVisible && state.isBudgetVisible) && assetPasswordProtection) {
+                                pendingToggleAction = { viewModel.toggleBudgetVisibility() }
+                                showAssetPasswordDialog = true
+                            } else {
+                                viewModel.toggleBudgetVisibility()
+                            }
+                        },
                         onClick = { showBudgetSheet = true }
                     )
                 }

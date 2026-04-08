@@ -15,7 +15,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * 规则引擎工具 - 增强版 (支持指定日期范围 & 记忆功能)
+ * 规则引擎工具 - 增强版 (支持年月查询，防止 AI 时间戳计算错误)
  */
 @Singleton
 class RuleEngineTool @Inject constructor(
@@ -27,10 +27,9 @@ class RuleEngineTool @Inject constructor(
     override val name = "rule_engine"
     override val description = """
         核心财务数据工具。
-        - get_summary: 获取指定范围的账单统计。
+        - get_summary: 获取指定范围的账单统计。支持通过 year 和 month 准确定位。
         - scale_analysis: 消费规模分析。
         - structure_analysis: 消费结构分析。
-        - record_user_explanation: 记录用户对某项支出的解释或备注，存入记忆。
     """.trimIndent()
 
     override val parametersSchema = """
@@ -39,24 +38,26 @@ class RuleEngineTool @Inject constructor(
             "properties": {
                 "operation": {
                     "type": "string",
-                    "enum": ["get_summary", "scale_analysis", "structure_analysis", "frequency_analysis", "record_user_explanation"],
-                    "description": "操作类型"
+                    "enum": ["get_summary", "scale_analysis", "structure_analysis", "frequency_analysis", "record_user_explanation"]
+                },
+                "year": {
+                    "type": "integer",
+                    "description": "年份，如 2026"
+                },
+                "month": {
+                    "type": "integer",
+                    "description": "月份，1-12"
                 },
                 "startTime": {
                     "type": "integer",
-                    "description": "开始时间戳（毫秒），可选"
+                    "description": "开始时间戳（毫秒），若有 year/month 则优先使用它们"
                 },
                 "endTime": {
                     "type": "integer",
-                    "description": "结束时间戳（毫秒），可选"
+                    "description": "结束时间戳（毫秒）"
                 },
                 "explanation": {
-                    "type": "string",
-                    "description": "用户的解释内容，仅用于 record_user_explanation"
-                },
-                "data": {
-                    "type": "object",
-                    "description": "可选数据对象"
+                    "type": "string"
                 }
             },
             "required": ["operation"]
@@ -67,44 +68,57 @@ class RuleEngineTool @Inject constructor(
         return try {
             val json = JSONObject(arguments)
             val operation = json.getString("operation")
-            val data = json.optJSONObject("data")
             
-            val startTime = if (json.has("startTime")) json.getLong("startTime") else null
-            val endTime = if (json.has("endTime")) json.getLong("endTime") else null
-
-            val result = when (operation) {
-                "get_summary" -> getSummary(startTime, endTime)
-                "scale_analysis" -> scaleAnalysis(data, startTime, endTime)
-                "structure_analysis" -> structureAnalysis(data, startTime, endTime)
-                "frequency_analysis" -> frequencyAnalysis(data, startTime, endTime)
-                "record_user_explanation" -> recordUserExplanation(json.optString("explanation", ""))
-                else -> errorResult("Unknown operation: $operation")
+            // 优先处理年月参数
+            val (computedStart, computedEnd) = if (json.has("year") && json.has("month")) {
+                val y = json.getInt("year")
+                val m = json.getInt("month")
+                calculateRange(y, m)
+            } else {
+                val s = if (json.has("startTime")) json.getLong("startTime") else null
+                val e = if (json.has("endTime")) json.getLong("endTime") else null
+                Pair(s, e)
             }
 
+            val result = when (operation) {
+                "get_summary" -> getSummary(computedStart, computedEnd)
+                "scale_analysis" -> scaleAnalysis(null, computedStart, computedEnd)
+                "structure_analysis" -> structureAnalysis(null, computedStart, computedEnd)
+                "record_user_explanation" -> recordUserExplanation(json.optString("explanation", ""))
+                else -> errorResult("Unknown operation")
+            }
             result.toString()
         } catch (e: Exception) {
-            errorResult("RuleEngineTool error: ${e.message}").toString()
+            errorResult("Error: ${e.message}").toString()
         }
+    }
+
+    private fun calculateRange(year: Int, month: Int): Pair<Long, Long> {
+        val cal = Calendar.getInstance()
+        cal.set(year, month - 1, 1, 0, 0, 0)
+        cal.set(Calendar.MILLISECOND, 0)
+        val start = cal.timeInMillis
+        
+        cal.set(Calendar.DAY_OF_MONTH, cal.getActualMaximum(Calendar.DAY_OF_MONTH))
+        cal.set(Calendar.HOUR_OF_DAY, 23)
+        cal.set(Calendar.MINUTE, 59)
+        cal.set(Calendar.SECOND, 59)
+        val end = cal.timeInMillis
+        return Pair(start, end)
     }
 
     private fun recordUserExplanation(explanation: String): JSONObject {
         if (explanation.isNotBlank()) {
-            // 将用户的解释存入 agent_context 的 memories 列表中
             val existing = agentContext.read("user_memories")
             val memoriesArray = if (existing.isEmpty()) JSONArray() else JSONArray(existing)
-            
-            val entry = JSONObject()
-            entry.put("date", SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.CHINA).format(Date()))
-            entry.put("content", explanation)
+            val entry = JSONObject().apply {
+                put("date", SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.CHINA).format(Date()))
+                put("content", explanation)
+            }
             memoriesArray.put(entry)
-            
             agentContext.write("user_memories", memoriesArray.toString())
         }
-        
-        val res = JSONObject()
-        res.put("status", "success")
-        res.put("message", "旺财已记下您的反馈：$explanation")
-        return res
+        return JSONObject().put("status", "success")
     }
 
     private fun getSummary(customStart: Long?, customEnd: Long?): JSONObject {
@@ -116,16 +130,8 @@ class RuleEngineTool @Inject constructor(
             end = customEnd
         } else {
             val calendar = Calendar.getInstance()
-            calendar.set(Calendar.HOUR_OF_DAY, 23)
-            calendar.set(Calendar.MINUTE, 59)
-            calendar.set(Calendar.SECOND, 59)
             end = calendar.timeInMillis
-
             calendar.add(Calendar.DAY_OF_YEAR, -29)
-            calendar.set(Calendar.HOUR_OF_DAY, 0)
-            calendar.set(Calendar.MINUTE, 0)
-            calendar.set(Calendar.SECOND, 0)
-            calendar.set(Calendar.MILLISECOND, 0)
             start = calendar.timeInMillis
         }
 
@@ -136,102 +142,58 @@ class RuleEngineTool @Inject constructor(
         }
 
         val catNameMap = categories.associate { it.id to "${it.icon} ${it.name}" }
-        val totalRaw = expenses.sumOf { it.amount }
-        val total = if (totalRaw.isNaN() || totalRaw.isInfinite()) 0.0 else totalRaw
+        val total = expenses.sumOf { it.amount }
         
         val categoryStats = expenses.groupBy { it.categoryId }
-            .mapValues { entry -> entry.value.sumOf { it.amount } }
-            .toList()
-            .sortedByDescending { it.second }
+            .mapValues { it.value.sumOf { m -> m.amount } }
+            .toList().sortedByDescending { it.second }
 
         val categoryArray = JSONArray()
         categoryStats.take(10).forEach { (catId, amount) ->
-            val catObj = JSONObject()
-            catObj.put("category", catNameMap[catId] ?: "未知($catId)")
-            catObj.put("amount", amount)
-            val percentage = if (total > 0) amount / total else 0.0
-            catObj.put("percentage", if (percentage.isNaN()) 0.0 else percentage)
-            categoryArray.put(catObj)
+            categoryArray.put(JSONObject().apply {
+                put("category", catNameMap[catId] ?: "未知")
+                put("amount", amount)
+                put("percentage", if (total > 0) amount / total else 0.0)
+            })
         }
 
-        val res = JSONObject()
-        res.put("period_desc", if (customStart != null) "custom_range" else "last_30_days")
-        res.put("total_expense", total)
-        res.put("transaction_count", expenses.size)
-        res.put("top_categories", categoryArray)
-        // 补充：带入历史记忆，方便 AI 参考
-        res.put("past_memories", agentContext.read("user_memories"))
-        res.put("status", "success")
-        return res
+        return JSONObject().apply {
+            put("period_desc", if (customStart != null) "custom_range" else "last_30_days")
+            put("total_expense", total)
+            put("transaction_count", expenses.size)
+            put("top_categories", categoryArray)
+            put("status", "success")
+        }
     }
 
     private fun scaleAnalysis(data: JSONObject?, start: Long?, end: Long?): JSONObject {
-        val valIn = data?.optDouble("total", Double.NaN) ?: Double.NaN
-        val total = if (valIn.isNaN()) getSummaryTotal(start, end) else valIn
-        return insightToJson(ScaleRule.buildInsight(if (total.isNaN()) 0.0 else total))
+        val total = getSummaryTotal(start, end)
+        return insightToJson(ScaleRule.buildInsight(total))
     }
 
     private fun structureAnalysis(data: JSONObject?, start: Long?, end: Long?): JSONObject {
-        var name = data?.optString("topCategoryName", "") ?: ""
-        var percentage = data?.optDouble("topPercentage", Double.NaN) ?: Double.NaN
-
-        if (name.isEmpty() || percentage.isNaN()) {
-            val summary = getSummary(start, end)
-            val tops = summary.optJSONArray("top_categories")
-            if (tops != null && tops.length() > 0) {
-                val first = tops.getJSONObject(0)
-                name = first.optString("category", "未知")
-                percentage = first.optDouble("percentage", 0.0)
-            }
-        }
-
-        val safeP = if (percentage.isNaN() || percentage.isInfinite()) 0.0f else percentage.toFloat()
-        val threshold = data?.optDouble("threshold", 0.4)?.toFloat() ?: 0.4f
+        val summary = getSummary(start, end)
+        val tops = summary.optJSONArray("top_categories")
+        if (tops == null || tops.length() == 0) return JSONObject().put("message", "无数据")
         
-        val insight = if (safeP > threshold) {
-            StructureRule.buildInsight(name, safeP)
-        } else {
-            Insight(
-                type = InsightType.STRUCTURE_BIAS,
-                message = "$name 占比 ${(safeP * 100).toInt()}%，结构正常。",
-                metadata = mapOf("categoryName" to name, "percentage" to safeP, "biased" to false)
-            )
-        }
-        return insightToJson(insight)
+        val first = tops.getJSONObject(0)
+        val name = first.getString("category")
+        val percentage = first.getDouble("percentage").toFloat()
+        
+        return insightToJson(StructureRule.buildInsight(name, percentage))
     }
 
-    private fun frequencyAnalysis(data: JSONObject?, start: Long?, end: Long?): JSONObject {
-        val countIn = data?.optInt("totalCount", -1) ?: -1
-        val count = if (countIn == -1) getSummaryCount(start, end) else countIn
-        return insightToJson(FrequencyRule.buildInsight(count))
-    }
-
-    private fun getSummaryTotal(start: Long?, end: Long?): Double {
-        val t = getSummary(start, end).optDouble("total_expense", 0.0)
-        return if (t.isNaN()) 0.0 else t
-    }
-
-    private fun getSummaryCount(start: Long?, end: Long?) = getSummary(start, end).optInt("transaction_count", 0)
+    private fun getSummaryTotal(start: Long?, end: Long?): Double = getSummary(start, end).optDouble("total_expense", 0.0)
 
     private fun insightToJson(insight: Insight): JSONObject {
         val json = JSONObject()
         json.put("type", insight.type.name)
         json.put("message", insight.message)
         val metadata = JSONObject()
-        insight.metadata.forEach { (key, value) -> 
-            val safeValue = if (value is Number) {
-                val d = value.toDouble()
-                if (d.isNaN() || d.isInfinite()) 0.0 else value
-            } else value
-            metadata.put(key, safeValue) 
-        }
+        insight.metadata.forEach { (k, v) -> metadata.put(k, v) }
         json.put("metadata", metadata)
         return json
     }
 
-    private fun errorResult(message: String): JSONObject {
-        val json = JSONObject()
-        json.put("error", message)
-        return json
-    }
+    private fun errorResult(message: String): JSONObject = JSONObject().put("error", message)
 }

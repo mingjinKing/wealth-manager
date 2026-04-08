@@ -55,19 +55,21 @@ fun MemoryManagementScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("记忆管理") },
+                title = { 
+                    Text("记忆管理")
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                     }
                 },
                 actions = {
-                    // 刷新记忆
+                    // 刷新记忆 (改为调用同步并提炼)
                     IconButton(
-                        onClick = { viewModel.refineMemory() },
+                        onClick = { viewModel.syncAndRefine() },
                         enabled = !state.isLoading
                     ) {
-                        Icon(Icons.Default.Refresh, contentDescription = "刷新记忆")
+                        Icon(Icons.Default.Refresh, contentDescription = "刷新并同步记忆")
                     }
                     // 清除全部
                     if (state.memories.isNotEmpty()) {
@@ -102,42 +104,41 @@ fun MemoryManagementScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "开始在「怎么花」对话，AI 会自动学习你的偏好",
+                        text = "点击下方按钮同步历史对话并重新提炼",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     OutlinedButton(
-                        onClick = { viewModel.refineMemory() }
+                        onClick = { viewModel.syncAndRefine() }
                     ) {
                         Icon(Icons.Default.Refresh, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("刷新记忆")
+                        Text("同步并刷新记忆")
                     }
                 }
             } else {
                 // 记忆列表
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     // 说明
                     item {
                         Text(
                             text = "这些是 AI 从你的对话中提炼的记忆，会在「怎么花」时作为参考",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 4.dp)
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        HorizontalDivider()
-                        Spacer(modifier = Modifier.height(8.dp))
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                     }
 
                     items(state.memories, key = { it.id }) { memory ->
                         MemoryCard(
                             memory = memory,
-                            onDelete = { viewModel.deleteMemory(memory.id) }
+                            onDelete = { viewModel.deleteMemory(memory) }
                         )
                     }
                 }
@@ -183,82 +184,70 @@ private fun MemoryCard(
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // 记忆标签
-                AssistChip(
-                    onClick = { },
-                    label = {
+                // 记忆标签和来源合一，更紧凑
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        shape = MaterialTheme.shapes.extraSmall
+                    ) {
                         Text(
                             text = memory.key,
-                            style = MaterialTheme.typography.labelSmall
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                     }
-                )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = getSourceLabel(memory.source),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                }
                 
-                // 置信度
-                Text(
-                    text = "置信度 ${(memory.confidence * 100).toInt()}%",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                // 删除小图标
+                IconButton(
+                    onClick = { showDeleteConfirm = true },
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "删除",
+                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
             }
             
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             
             // 记忆内容
             Text(
                 text = memory.summary,
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium
             )
             
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             
-            // 来源和时间
+            // 时间和置信度
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "来源: ${getSourceLabel(memory.source)}",
+                    text = "${(memory.confidence * 100).toInt()}% 靠谱 · ${formatTime(memory.updatedAt)}",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.outline
                 )
-                
-                Text(
-                    text = formatTime(memory.updatedAt),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // 删除按钮
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                TextButton(
-                    onClick = { showDeleteConfirm = true },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("删除", style = MaterialTheme.typography.labelSmall)
-                }
             }
         }
     }
@@ -269,6 +258,7 @@ private fun getSourceLabel(source: String): String {
         "ai_analysis" -> "AI 分析"
         "user_input" -> "用户输入"
         "auto_extract" -> "自动提取"
+        "extracted_fact" -> "长期事实"
         else -> source
     }
 }
@@ -278,11 +268,11 @@ private fun formatTime(timestamp: Long): String {
     val diff = now - timestamp
     return when {
         diff < 60_000 -> "刚刚"
-        diff < 3600_000 -> "${diff / 60_000} 分钟前"
-        diff < 86400_000 -> "${diff / 3600_000} 小时前"
-        diff < 604800_000 -> "${diff / 86400_000} 天前"
+        diff < 3600_000 -> "${diff / 60_000}m前"
+        diff < 86400_000 -> "${diff / 3600_000}h前"
+        diff < 604800_000 -> "${diff / 86400_000}d前"
         else -> {
-            val sdf = java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.getDefault())
+            val sdf = java.text.SimpleDateFormat("MM-dd", java.util.Locale.getDefault())
             sdf.format(java.util.Date(timestamp))
         }
     }

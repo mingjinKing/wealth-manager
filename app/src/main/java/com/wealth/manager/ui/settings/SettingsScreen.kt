@@ -2,9 +2,9 @@ package com.wealth.manager.ui.settings
 
 import android.content.Context
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,9 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -55,6 +53,8 @@ fun SettingsScreen(
     var passwordInput by remember { mutableStateOf("") }
     var passwordConfirm by remember { mutableStateOf("") }
     var passwordError by remember { mutableStateOf<String?>(null) }
+
+    val context = LocalContext.current
 
     // 启用密码保护时弹窗
     if (showPasswordSetDialog) {
@@ -157,7 +157,7 @@ fun SettingsScreen(
                     OutlinedTextField(
                         value = passwordInput,
                         onValueChange = { if (it.length <= 6) passwordInput = it },
-                        label = { Text("新密码（最多6位）") },
+                        label = { Text("输入新密码（最多6位）") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                         visualTransformation = PasswordVisualTransformation(),
                         isError = passwordError != null,
@@ -199,6 +199,7 @@ fun SettingsScreen(
                         showPasswordChangeDialog = false
                         passwordInput = ""
                         passwordConfirm = ""
+                        Toast.makeText(context, "密码修改成功", Toast.LENGTH_SHORT).show()
                     }
                 ) {
                     Text("确定")
@@ -219,31 +220,34 @@ fun SettingsScreen(
         )
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("设置", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Surface
-                )
-            )
-        },
-        containerColor = Background
-    ) { padding ->
+    val prefs = context.getSharedPreferences("theme_prefs", Context.MODE_PRIVATE)
+    val currentBgUri = prefs.getString("custom_bg_uri", null)
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Background)
+    ) {
+        // TopBar
+        TopAppBar(
+            title = { Text("设置", fontWeight = FontWeight.Bold) },
+            navigationIcon = {
+                IconButton(onClick = onNavigateBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = Background)
+        )
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp)
                 .verticalScroll(rememberScrollState())
+                .padding(16.dp)
         ) {
+            // 主题色选择
             Text(
-                text = "个性化",
+                text = "主题颜色",
                 style = MaterialTheme.typography.titleMedium,
                 color = TextSecondary,
                 modifier = Modifier.padding(bottom = 12.dp)
@@ -254,39 +258,42 @@ fun SettingsScreen(
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = Surface)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "主题颜色",
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        ThemeColorItem("金黄色", ThemeGold, currentThemeColor) {
-                            viewModel.setThemeColor(ThemeGold)
-                        }
-                        ThemeColorItem("科技蓝", ThemeBlue, currentThemeColor) {
-                            viewModel.setThemeColor(ThemeBlue)
-                        }
-                        ThemeColorItem("可爱粉", ThemePink, currentThemeColor) {
-                            viewModel.setThemeColor(ThemePink)
-                        }
-                        ThemeColorItem("流光紫", ThemePurple, currentThemeColor) {
-                            viewModel.setThemeColor(ThemePurple)
-                        }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceAround
+                ) {
+                    ThemeColorItem("华丽金", ThemeGold, currentThemeColor) {
+                        viewModel.setThemeColor(ThemeGold)
+                    }
+                    ThemeColorItem("清新蓝", ThemeBlue, currentThemeColor) {
+                        viewModel.setThemeColor(ThemeBlue)
+                    }
+                    ThemeColorItem("魅力粉", ThemePink, currentThemeColor) {
+                        viewModel.setThemeColor(ThemePink)
+                    }
+                    ThemeColorItem("优雅紫", ThemePurple, currentThemeColor) {
+                        viewModel.setThemeColor(ThemePurple)
                     }
                 }
+            }
 
-                Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-                // 换背景图
-                val context = LocalContext.current
-                val prefs = context.getSharedPreferences("dashboard_prefs", android.content.Context.MODE_PRIVATE)
-                val currentBgUri = prefs.getString("custom_bg_uri", null)
+            // 背景图设置
+            Text(
+                text = "界面定制",
+                style = MaterialTheme.typography.titleMedium,
+                color = TextSecondary,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
 
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Surface)
+            ) {
                 val launcher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.OpenDocument()
                 ) { uri: Uri? ->
@@ -315,7 +322,7 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.padding(start = 16.dp)) {
                         Text(
                             text = "首页背景图",
                             style = MaterialTheme.typography.bodyLarge,
@@ -547,7 +554,7 @@ fun SettingsScreen(
                                     isUploading = true
                                     uploadResult = null
                                     val deviceId = android.provider.Settings.Secure.getString(ctx.contentResolver, android.provider.Settings.Secure.ANDROID_ID)
-                                    LogCollector.uploadAll(ctx, deviceId) { success: Boolean, msg: String ->
+                                    viewModel.uploadLogs(deviceId) { success: Boolean, msg: String ->
                                         isUploading = false
                                         uploadResult = msg
                                     }

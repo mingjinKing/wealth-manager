@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -27,6 +28,7 @@ import com.wealth.manager.data.entity.AssetType
 import com.wealth.manager.ui.achievements.AchievementsViewModel
 import com.wealth.manager.ui.theme.Surface
 import com.wealth.manager.ui.theme.TextSecondary
+import com.wealth.manager.ui.theme.ThemeViewModel
 import com.wealth.manager.ui.theme.Warning
 import java.util.Locale
 
@@ -35,16 +37,84 @@ import java.util.Locale
 fun AssetManageScreen(
     onNavigateBack: () -> Unit,
     viewModel: AssetViewModel = hiltViewModel(),
-    achievementsViewModel: AchievementsViewModel = hiltViewModel()
+    achievementsViewModel: AchievementsViewModel = hiltViewModel(),
+    themeViewModel: ThemeViewModel = hiltViewModel()
 ) {
     val assets by viewModel.assets.collectAsState()
     val totalAssets by viewModel.totalAssets.collectAsState()
     val totalLiabilities by viewModel.totalLiabilities.collectAsState()
     val state by achievementsViewModel.state.collectAsState()
+    val assetPasswordProtection by themeViewModel.assetPasswordProtection.collectAsState()
     val isAmountVisible = state.isAssetVisible // 资产页同步成就页的资产隐私开关
     
     var showAddDialog by remember { mutableStateOf(false) }
     var editingAsset by remember { mutableStateOf<AssetEntity?>(null) }
+
+    // 密码验证弹窗状态
+    var showAssetPasswordDialog by remember { mutableStateOf(false) }
+    var assetPasswordInput by remember { mutableStateOf("") }
+    var assetPasswordError by remember { mutableStateOf<String?>(null) }
+
+    if (showAssetPasswordDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showAssetPasswordDialog = false
+                assetPasswordInput = ""
+                assetPasswordError = null
+            },
+            title = { Text("请输入密码") },
+            text = {
+                Column {
+                    Text("查看资产金额需要密码验证", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    TextField(
+                        value = assetPasswordInput,
+                        onValueChange = { if (it.length <= 6) assetPasswordInput = it },
+                        label = { Text("密码") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        visualTransformation = PasswordVisualTransformation(),
+                        isError = assetPasswordError != null,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (assetPasswordError != null) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = assetPasswordError!!,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (themeViewModel.verifyAssetPassword(assetPasswordInput)) {
+                            showAssetPasswordDialog = false
+                            assetPasswordInput = ""
+                            assetPasswordError = null
+                            achievementsViewModel.toggleAssetVisibility()
+                        } else {
+                            assetPasswordError = "密码错误"
+                        }
+                    }
+                ) {
+                    Text("确定")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showAssetPasswordDialog = false
+                        assetPasswordInput = ""
+                        assetPasswordError = null
+                    }
+                ) {
+                    Text("取消")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -56,7 +126,13 @@ fun AssetManageScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { achievementsViewModel.toggleAssetVisibility() }) {
+                    IconButton(onClick = { 
+                        if (!isAmountVisible && assetPasswordProtection) {
+                            showAssetPasswordDialog = true
+                        } else {
+                            achievementsViewModel.toggleAssetVisibility()
+                        }
+                    }) {
                         Icon(
                             imageVector = if (isAmountVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
                             contentDescription = "切换可见性"

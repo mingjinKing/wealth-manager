@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wealth.manager.agent.AppInitializer
 import com.wealth.manager.agent.WangcaiAgent
+import com.wealth.manager.data.MemoryRetriever
 import com.wealth.manager.data.dao.CategoryDao
 import com.wealth.manager.data.dao.ExpenseDao
 import com.wealth.manager.data.entity.ExpenseEntity
@@ -26,7 +27,8 @@ class InsightsViewModel @Inject constructor(
     private val expenseDao: ExpenseDao,
     private val categoryDao: CategoryDao,
     private val wangcaiAgent: WangcaiAgent,
-    private val appInitializer: AppInitializer
+    private val appInitializer: AppInitializer,
+    private val memoryRetriever: MemoryRetriever
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(InsightsState())
@@ -127,7 +129,15 @@ class InsightsViewModel @Inject constructor(
                 wangcaiAgent.clearContext()
                 appInitializer.refreshAppData()
                 
-                val systemContext = buildSystemContextForAi(analysisStart, analysisEnd, rangeText)
+                // 1. 混合检索历史记忆 (FTS + 向量)
+                _state.value = _state.value.copy(aiThoughtStatus = "正在检索相关记忆...")
+                val query = "分析 $rangeText 的消费习惯和财务目标"
+                val memories = memoryRetriever.searchHybrid(query, topK = 5)
+                val memoryContext = if (memories.isNotEmpty()) {
+                    "\n\n相关历史记忆：\n" + memories.joinToString("\n") { "- ${it.content}" }
+                } else ""
+
+                val systemContext = buildSystemContextForAi(analysisStart, analysisEnd, rangeText) + memoryContext
 
                 val progressRegex = Regex("\\[PROGRESS: (.*?)\\]")
 

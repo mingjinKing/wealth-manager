@@ -11,52 +11,53 @@ import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.ConcurrentLinkedQueue
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
- * 调试日志收集器
- * 维护一个内存中的日志缓冲区，支持上传到服务器
+ * 调试日志收集器 - 统一连接池版
  */
-object LogCollector {
-    private const val MAX_LOGS = 500
-    private const val TAG = "LogCollector"
-    
-    private val logs = ConcurrentLinkedQueue<LogEntry>()
-    private val dateFormat = SimpleDateFormat("HH:mm:ss.SSS", Locale.getDefault())
-    
-    data class LogEntry(
-        val timestamp: Long = System.currentTimeMillis(),
-        val tag: String,
-        val level: String,  // D/I/W/E
-        val message: String,
-        val thread: String = Thread.currentThread().name
-    )
-    
-    /**
-     * 记录一条日志
-     */
-    fun log(tag: String, level: String = "D", message: String) {
-        val entry = LogEntry(tag = tag, level = level, message = message)
-        logs.offer(entry)
-        // 超过上限时移除最旧的
-        while (logs.size > MAX_LOGS) {
-            logs.poll()
+@Singleton
+class LogCollector @Inject constructor(
+    private val client: OkHttpClient // 注入全局单例 OkHttpClient
+) {
+    companion object {
+        private const val MAX_LOGS = 500
+        private const val TAG = "LogCollector"
+        
+        // 静态日志缓冲区，支持静态方法记录
+        private val logs = ConcurrentLinkedQueue<LogEntry>()
+        private val dateFormat = SimpleDateFormat("HH:mm:ss.SSS", Locale.getDefault())
+        
+        data class LogEntry(
+            val timestamp: Long = System.currentTimeMillis(),
+            val tag: String,
+            val level: String,
+            val message: String,
+            val thread: String = Thread.currentThread().name
+        )
+
+        fun log(tag: String, level: String = "D", message: String) {
+            val entry = LogEntry(tag = tag, level = level, message = message)
+            logs.offer(entry)
+            while (logs.size > MAX_LOGS) logs.poll()
+            when (level) {
+                "E" -> Log.e(tag, message)
+                "W" -> Log.w(tag, message)
+                "I" -> Log.i(tag, message)
+                else -> Log.d(tag, message)
+            }
         }
-        // 同时打印到系统 Logcat
-        when (level) {
-            "E" -> Log.e(tag, message)
-            "W" -> Log.w(tag, message)
-            "I" -> Log.i(tag, message)
-            else -> Log.d(tag, message)
-        }
+        fun d(tag: String, msg: String) = log(tag, "D", msg)
+        fun i(tag: String, msg: String) = log(tag, "I", msg)
+        fun w(tag: String, msg: String) = log(tag, "W", msg)
+        fun e(tag: String, msg: String) = log(tag, "E", msg)
+        fun getSummary(): String = if (logs.isEmpty()) "暂无日志" else "${logs.size} 条日志"
+        fun clear() = logs.clear()
     }
     
-    fun d(tag: String, msg: String) = log(tag, "D", msg)
-    fun i(tag: String, msg: String) = log(tag, "I", msg)
-    fun w(tag: String, msg: String) = log(tag, "W", msg)
-    fun e(tag: String, msg: String) = log(tag, "E", msg)
-    
     /**
-     * 上传所有日志到服务器
+     * 上传所有日志到服务器 (复用全局连接池)
      */
     fun uploadAll(context: Context, deviceId: String, onComplete: (Boolean, String) -> Unit) {
         val logsArray = JSONArray()
@@ -77,47 +78,21 @@ object LogCollector {
             put("logs", logsArray)
         }.toString()
         
-        val requestBody = body.toRequestBody("application/x-www-form-urlencoded".toMediaType())
-        
+        val requestBody = body.toRequestBody("application/json".toMediaType())
         val request = Request.Builder()
             .url("http://101.201.67.78/log/report")
             .post(requestBody)
             .build()
         
-        OkHttpClient().newCall(request).enqueue(object : Callback {
+        client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
                 Log.e(TAG, "上传日志失败: ${e.message}")
                 onComplete(false, e.message ?: "网络错误")
             }
-            
             override fun onResponse(call: Call, response: Response) {
                 val ok = response.isSuccessful
-                Log.i(TAG, "上传日志结果: $ok")
-                onComplete(ok, if (ok) "上传成功 (${logs.size} 条)" else "服务器错误")
+                onComplete(ok, if (ok) "上传成功" else "服务器错误")
             }
         })
-    }
-    
-    /**
-     * 获取当前日志数量
-     */
-    fun size(): Int = logs.size
-    
-    /**
-     * 清空日志
-     */
-    fun clear() {
-        logs.clear()
-    }
-    
-    /**
-     * 获取日志摘要（用于预览）
-     */
-    fun getSummary(): String {
-        return if (logs.isEmpty()) {
-            "暂无日志"
-        } else {
-            "${logs.size} 条日志"
-        }
     }
 }
