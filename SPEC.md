@@ -1,6 +1,6 @@
 # 知财 (Wealth Manager) - 技术规格说明书
 
-> 版本：v2.4 | 更新：2026-04-04 | 状态：**v1.0 已上线**
+> 版本：v2.5 | 更新：2026-04-08 | 状态：**v1.0 已上线**
 
 ---
 
@@ -32,7 +32,7 @@
 
 ---
 
-## 3. Room 数据库设计（5张表）
+## 3. Room 数据库设计（9张表）
 
 > ⚠️ **以代码实现为准**，文档如有不一致请以代码为准并更新本文档。
 
@@ -98,6 +98,55 @@
 | month | String | 预算月份（格式：`"yyyy-MM"`，如 `"2026-04"`）|
 | categoryId | Long? | 分类ID（**可为空**，`null` = 全局预算）|
 
+### 3.6 SessionEntity（会话表）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | String | 主键，UUID |
+| title | String | 会话标题 |
+| createdAt | Long | 创建时间 |
+| updatedAt | Long | 更新时间 |
+
+### 3.7 MessageEntity（消息表）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | String | 主键，UUID |
+| sessionId | String | 所属会话 ID |
+| isUser | Boolean | 是否用户消息 |
+| content | String | 消息内容 |
+| createdAt | Long | 创建时间 |
+| isUseful | Boolean | 用户标记有用 |
+| isLiked | Boolean | 用户标记喜欢 |
+
+### 3.8 MemoryEntity（长期记忆表）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | String | 主键，UUID |
+| key | String | 记忆键 |
+| value | String | JSON 结构化值 |
+| summary | String | 人类可读摘要 |
+| source | String | 来源：user_input / ai_analysis / auto_extract |
+| confidence | Float | 置信度 0-1 |
+| createdAt | Long | 创建时间 |
+| updatedAt | Long | 更新时间 |
+
+### 3.9 ExtractedFactEntity（关键信息提取表）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | String | 主键，UUID |
+| key | String | 记忆键 |
+| value | String | JSON 结构化值 |
+| summary | String | 人类可读摘要（**向量嵌入对象**）|
+| source | String | 来源：auto_extract |
+| confidence | Float | 置信度 0-1 |
+| sourceMessageId | String? | 溯源消息 ID |
+| expiresAt | Long? | 过期时间（可选）|
+| createdAt | Long | 创建时间 |
+| updatedAt | Long | 更新时间 |
+
 ---
 
 ## 4. 页面路由
@@ -149,13 +198,40 @@ wow_triggered = savedAmount > ¥100 AND savedAmount > last_4_week_avg × 20%
 
 ---
 
-## 8. 版本历史
+## 8. 本地记忆系统
+
+### 8.1 存储架构
+
+| 类型 | 存储位置 | 说明 |
+|------|----------|------|
+| 消息 | `messages` 表 | 原始对话消息 |
+| 会话 | `sessions` 表 | 会话元信息 |
+| 长期记忆 | `memory` 表 | AI 提炼的结构化画像 |
+| 关键信息 | `extracted_facts` 表 | AI 实时提取的事实 |
+| 向量 | `memory_fts.db` | 768 维文本向量 |
+
+### 8.2 检索策略
+
+- **FTS5/FTS4/LIKE 降级**：自动检测可用 FTS 模式
+- **向量相似度搜索**：基于 embedding 的语义匹配
+- **RRF 融合**：FTS + 向量融合排名（k=60）
+
+### 8.3 关键信息提取
+
+- **触发时机**：AI 回复完成后自动触发
+- **异步执行**：不阻塞主流程
+- **提取内容**：用户透露的预算、偏好、目标、决定等
+
+---
+
+## 9. 版本历史
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
-| **v2.5** | 2026-04-05 | 新增怎么花页面（HowToSpendScreen）；新增设置页面（SettingsScreen，主题颜色切换）；完善导入数据页面（ImportScreen）功能；补充文档缺失的 3 个页面 |
-| **v2.4** | 2026-04-04 | 旺财 Micro Agent v1.9.1 上线（DeepSeek-v3.2 + 工具系统 + 规则引擎模块化）；透视页 AI 复盘功能上线；AgentContext 持久化；API Key 加密存储 |
-| **v2.3** | 2026-04-02 | v1.0 已上线；精简产品哲学（保留定位），修正 AssetEntity.balance、BudgetEntity.month 格式、AssetType 枚举；与 Wiki 产品哲学文档分离 |
-| v2.2 | 2026-04-02 | 补充产品哲学（极简操作、静默守护、适时出现）、旺财人格定义 |
-| v2.1 | 2026-04-02 | 名称统一为知财、BottomNav 修正、补充 Room 5张表完整架构 |
+| **v2.5** | 2026-04-08 | 新增本地记忆系统：FTS5/FTS4+向量检索、RRF 融合、FactExtractor AI 提取；Room 数据库升至 9 张表 |
+| **v2.5** | 2026-04-05 | 新增怎么花页面（HowToSpendScreen）；新增设置页面（SettingsScreen，主题颜色切换）；完善导入数据页面（ImportScreen）功能 |
+| **v2.4** | 2026-04-04 | 旺财 Micro Agent v1.9.1 上线（DeepSeek-v3.2 + 工具系统 + 规则引擎模块化）；透视页 AI 复盘功能上线 |
+| **v2.3** | 2026-04-02 | v1.0 已上线；精简产品哲学 |
+| v2.2 | 2026-04-02 | 补充产品哲学、旺财人格定义 |
+| v2.1 | 2026-04-02 | 名称统一为知财、BottomNav 修正 |
 | v2.0 | 2026-03-31 | 浅色主题、首页日账单模式、记账页重构 |
