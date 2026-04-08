@@ -8,3 +8,6 @@ LLM_API_KEY=your_api_key_here
 # AndroidX（勿删除）
 android.useAndroidX=true
 android.enableJetifier=true
+
+# JVM 堆内存（解决 D8/R8 OOM 问题）
+org.gradle.jvmargs=-Xmx4096m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
