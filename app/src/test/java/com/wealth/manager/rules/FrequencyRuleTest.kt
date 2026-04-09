@@ -10,33 +10,34 @@ import org.junit.Test
  */
 class FrequencyRuleTest {
 
+    // ==================== isHighFrequency 测试 ====================
+
     @Test
-    fun `isHighFrequency - 消费笔数超过50时应返回true`() {
-        // given
-        val totalCount = 60
+    fun `isHighFrequency - 超过阈值返回 true`() {
+        // given - 阈值是 50
+        val totalCount = 51
 
         // when
         val result = FrequencyRule.isHighFrequency(totalCount)
 
         // then
-        assertTrue("60笔应判定为高频", result)
+        assertTrue("51 > 50，应返回 true", result)
     }
 
     @Test
-    fun `isHighFrequency - 刚好等于50时应返回false`() {
-        // given
+    fun `isHighFrequency - 刚好等于阈值返回 false`() {
+        // given - 使用 > 而非 >=
         val totalCount = 50
 
         // when
         val result = FrequencyRule.isHighFrequency(totalCount)
 
         // then
-        // 使用 > 而非 >=，所以等于时不触发
-        assertFalse("刚好50笔不是高频", result)
+        assertFalse("50 不大于 50，应返回 false", result)
     }
 
     @Test
-    fun `isHighFrequency - 略低于50时应返回false`() {
+    fun `isHighFrequency - 略低于阈值返回 false`() {
         // given
         val totalCount = 49
 
@@ -44,11 +45,11 @@ class FrequencyRuleTest {
         val result = FrequencyRule.isHighFrequency(totalCount)
 
         // then
-        assertFalse("略低于50笔不是高频", result)
+        assertFalse("49 < 50，应返回 false", result)
     }
 
     @Test
-    fun `isHighFrequency - 零笔数时应返回false`() {
+    fun `isHighFrequency - 零返回 false`() {
         // given
         val totalCount = 0
 
@@ -56,11 +57,23 @@ class FrequencyRuleTest {
         val result = FrequencyRule.isHighFrequency(totalCount)
 
         // then
-        assertFalse("零笔数不是高频", result)
+        assertFalse("0 不是高频", result)
     }
 
     @Test
-    fun `isHighFrequency - 100笔时应返回true`() {
+    fun `isHighFrequency - 负值返回 false`() {
+        // given - 不正常情况
+        val totalCount = -1
+
+        // when
+        val result = FrequencyRule.isHighFrequency(totalCount)
+
+        // then
+        assertFalse("负值不是高频", result)
+    }
+
+    @Test
+    fun `isHighFrequency - 100笔返回 true`() {
         // given
         val totalCount = 100
 
@@ -68,27 +81,125 @@ class FrequencyRuleTest {
         val result = FrequencyRule.isHighFrequency(totalCount)
 
         // then
-        assertTrue("100笔应判定为高频", result)
+        assertTrue("100 > 50，应返回 true", result)
     }
 
     @Test
-    fun `buildInsight - 高频消费时应返回正确的洞察`() {
+    fun `isHighFrequency - Int 最大值`() {
+        // given
+        val totalCount = Int.MAX_VALUE
+
         // when
-        val insight = FrequencyRule.buildInsight(80)
+        val result = FrequencyRule.isHighFrequency(totalCount)
+
+        // then
+        assertTrue(result)
+    }
+
+    // ==================== buildInsight 测试 ====================
+
+    @Test
+    fun `buildInsight - 返回正确类型`() {
+        // when
+        val insight = FrequencyRule.buildInsight(60)
 
         // then
         assertEquals(InsightType.HIGH_FREQUENCY, insight.type)
-        assertTrue("消息: " + insight.message, insight.message.contains("80"))
-        assertEquals(80, insight.metadata["totalCount"])
     }
 
     @Test
-    fun `buildInsight - 边界值51笔时应触发`() {
+    fun `buildInsight - 消息包含笔数`() {
+        // given
+        val totalCount = 80
+
+        // when
+        val insight = FrequencyRule.buildInsight(totalCount)
+
+        // then
+        assertTrue(
+            "消息应包含笔数信息",
+            insight.message.contains("80") || insight.message.contains("80")
+        )
+    }
+
+    @Test
+    fun `buildInsight - 元数据包含 totalCount`() {
+        // given
+        val totalCount = 75
+
+        // when
+        val insight = FrequencyRule.buildInsight(totalCount)
+
+        // then
+        assertEquals(75, insight.metadata["totalCount"])
+    }
+
+    @Test
+    fun `buildInsight - 消息建议减少小额支出`() {
+        // when
+        val insight = FrequencyRule.buildInsight(60)
+
+        // then
+        assertTrue(
+            "消息应包含建议",
+            insight.message.contains("高频") ||
+            insight.message.contains("小额") ||
+            insight.message.contains("减少")
+        )
+    }
+
+    @Test
+    fun `buildInsight - 不同笔数生成不同元数据`() {
+        // when
+        val insight1 = FrequencyRule.buildInsight(51)
+        val insight2 = FrequencyRule.buildInsight(100)
+
+        // then
+        assertEquals(51, insight1.metadata["totalCount"])
+        assertEquals(100, insight2.metadata["totalCount"])
+        assertNotEquals(
+            insight1.metadata["totalCount"],
+            insight2.metadata["totalCount"]
+        )
+    }
+
+    // ==================== 边界条件测试 ====================
+
+    @Test
+    fun `isHighFrequency - 临界值 51`() {
+        assertTrue(FrequencyRule.isHighFrequency(51))
+    }
+
+    @Test
+    fun `isHighFrequency - 临界值 50`() {
+        assertFalse(FrequencyRule.isHighFrequency(50))
+    }
+
+    @Test
+    fun `isHighFrequency - 临界值 49`() {
+        assertFalse(FrequencyRule.isHighFrequency(49))
+    }
+
+    @Test
+    fun `buildInsight - 边界值 51`() {
         // when
         val insight = FrequencyRule.buildInsight(51)
 
         // then
         assertEquals(InsightType.HIGH_FREQUENCY, insight.type)
-        assertTrue("消息: " + insight.message, insight.message.contains("51"))
+        assertEquals(51, insight.metadata["totalCount"])
+    }
+
+    @Test
+    fun `buildInsight - 大量笔数`() {
+        // given
+        val totalCount = 500
+
+        // when
+        val insight = FrequencyRule.buildInsight(totalCount)
+
+        // then
+        assertEquals(InsightType.HIGH_FREQUENCY, insight.type)
+        assertEquals(500, insight.metadata["totalCount"])
     }
 }

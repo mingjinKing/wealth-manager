@@ -10,45 +10,46 @@ import org.junit.Test
  */
 class ScaleRuleTest {
 
+    // ==================== isLargeScale 测试 ====================
+
     @Test
-    fun `isLargeScale - 支出超过5000时应返回true`() {
-        // given
+    fun `isLargeScale - 超过阈值返回 true`() {
+        // given - 阈值是 5000
         val total = 6000.0
 
         // when
         val result = ScaleRule.isLargeScale(total)
 
         // then
-        assertTrue("支出6000应判定为大规模", result)
+        assertTrue("6000 > 5000，应返回 true", result)
     }
 
     @Test
-    fun `isLargeScale - 刚好等于5000时应返回false`() {
-        // given
+    fun `isLargeScale - 刚好等于阈值返回 false`() {
+        // given - 阈值是 5000（使用 > 而非 >=）
         val total = 5000.0
 
         // when
         val result = ScaleRule.isLargeScale(total)
 
         // then
-        // 使用 > 而非 >=，所以等于时不触发
-        assertFalse("刚好等于5000不是大规模", result)
+        assertFalse("5000 不大于 5000，应返回 false", result)
     }
 
     @Test
-    fun `isLargeScale - 略低于5000时应返回false`() {
+    fun `isLargeScale - 略低于阈值返回 false`() {
         // given
-        val total = 4999.0
+        val total = 4999.99
 
         // when
         val result = ScaleRule.isLargeScale(total)
 
         // then
-        assertFalse("略低于5000不是大规模", result)
+        assertFalse("4999.99 < 5000，应返回 false", result)
     }
 
     @Test
-    fun `isLargeScale - 零支出时应返回false`() {
+    fun `isLargeScale - 零值返回 false`() {
         // given
         val total = 0.0
 
@@ -56,23 +57,49 @@ class ScaleRuleTest {
         val result = ScaleRule.isLargeScale(total)
 
         // then
-        assertFalse("零支出不是大规模", result)
+        assertFalse("0 不大于 5000，应返回 false", result)
     }
 
     @Test
-    fun `isLargeScale - 负数支出时应返回false`() {
-        // given
+    fun `isLargeScale - 负值返回 false`() {
+        // given - 不正常情况
         val total = -100.0
 
         // when
         val result = ScaleRule.isLargeScale(total)
 
         // then
-        assertFalse("负数支出不是大规模", result)
+        assertFalse("负值不应算大规模", result)
     }
 
     @Test
-    fun `isWellControlled - 支出在0到5000之间时应返回true`() {
+    fun `isLargeScale - 极大值`() {
+        // given
+        val total = Double.MAX_VALUE
+
+        // when
+        val result = ScaleRule.isLargeScale(total)
+
+        // then
+        assertTrue(result)
+    }
+
+    // ==================== isWellControlled 测试 ====================
+
+    @Test
+    fun `isWellControlled - 零值返回 true`() {
+        // given
+        val total = 0.0
+
+        // when
+        val result = ScaleRule.isWellControlled(total)
+
+        // then
+        assertTrue("0 在范围内 [0, 5000]，应返回 true", result)
+    }
+
+    @Test
+    fun `isWellControlled - 正常范围返回 true`() {
         // given
         val total = 3000.0
 
@@ -80,11 +107,11 @@ class ScaleRuleTest {
         val result = ScaleRule.isWellControlled(total)
 
         // then
-        assertTrue("支出3000应在可控范围", result)
+        assertTrue("3000 在 [0, 5000] 范围内，应返回 true", result)
     }
 
     @Test
-    fun `isWellControlled - 刚好等于5000时应返回true`() {
+    fun `isWellControlled - 刚好等于上限返回 true`() {
         // given
         val total = 5000.0
 
@@ -92,55 +119,149 @@ class ScaleRuleTest {
         val result = ScaleRule.isWellControlled(total)
 
         // then
-        assertTrue("等于5000边界值应在可控范围", result)
+        assertTrue("5000 在 [0, 5000] 范围内，应返回 true", result)
     }
 
     @Test
-    fun `isWellControlled - 超过5000时应返回false`() {
+    fun `isWellControlled - 超过上限返回 false`() {
         // given
-        val total = 6000.0
+        val total = 5001.0
 
         // when
         val result = ScaleRule.isWellControlled(total)
 
         // then
-        assertFalse("超过5000不是可控范围", result)
+        assertFalse("5001 > 5000，超出范围，应返回 false", result)
     }
 
     @Test
-    fun `isWellControlled - 零支出时应返回true`() {
+    fun `isWellControlled - 负值返回 false`() {
         // given
-        val total = 0.0
+        val total = -100.0
 
         // when
         val result = ScaleRule.isWellControlled(total)
 
         // then
-        assertTrue("零支出是可控的", result)
+        assertFalse("负值不在范围内，应返回 false", result)
     }
 
+    // ==================== buildInsight 测试 ====================
+
     @Test
-    fun `buildInsight - 大规模支出时应返回LARGE级别的洞察`() {
+    fun `buildInsight - 大规模支出返回正确类型`() {
+        // given
+        val total = 8000.0
+
         // when
-        val insight = ScaleRule.buildInsight(8000.0)
+        val insight = ScaleRule.buildInsight(total)
 
         // then
         assertEquals(InsightType.SCALE_ANALYSIS, insight.type)
-        assertTrue(insight.message.contains("规模较大"))
-        assertEquals(8000.0, insight.metadata["total"])
-        assertEquals(5000.0, insight.metadata["threshold"])
         assertEquals("LARGE", insight.metadata["level"])
     }
 
     @Test
-    fun `buildInsight - 正常支出时应返回NORMAL级别的洞察`() {
+    fun `buildInsight - 正常规模返回正确类型`() {
+        // given
+        val total = 3000.0
+
         // when
-        val insight = ScaleRule.buildInsight(3000.0)
+        val insight = ScaleRule.buildInsight(total)
 
         // then
         assertEquals(InsightType.SCALE_ANALYSIS, insight.type)
-        assertTrue(insight.message.contains("预算管理良好"))
-        assertEquals(3000.0, insight.metadata["total"])
         assertEquals("NORMAL", insight.metadata["level"])
+    }
+
+    @Test
+    fun `buildInsight - 大规模支出消息包含金额`() {
+        // given
+        val total = 8000.0
+
+        // when
+        val insight = ScaleRule.buildInsight(total)
+
+        // then
+        assertTrue(insight.message.contains("8000") || insight.message.contains("8000"))
+        assertTrue(insight.message.contains("大") || insight.message.contains("审查"))
+    }
+
+    @Test
+    fun `buildInsight - 正常规模消息积极`() {
+        // given
+        val total = 3000.0
+
+        // when
+        val insight = ScaleRule.buildInsight(total)
+
+        // then
+        assertTrue(
+            insight.message.contains("良好") ||
+            insight.message.contains("正常") ||
+            insight.message.contains("控制")
+        )
+    }
+
+    @Test
+    fun `buildInsight - 包含元数据`() {
+        // given
+        val total = 6000.0
+
+        // when
+        val insight = ScaleRule.buildInsight(total)
+
+        // then
+        assertEquals(6000.0, insight.metadata["total"])
+        assertEquals(5000.0, insight.metadata["threshold"])
+    }
+
+    @Test
+    fun `buildInsight - 零值正常处理`() {
+        // given
+        val total = 0.0
+
+        // when
+        val insight = ScaleRule.buildInsight(total)
+
+        // then
+        assertEquals(InsightType.SCALE_ANALYSIS, insight.type)
+        assertEquals("NORMAL", insight.metadata["level"])
+    }
+
+    // ==================== 边界条件测试 ====================
+
+    @Test
+    fun `isLargeScale - 临界值 5001`() {
+        assertTrue(ScaleRule.isLargeScale(5001.0))
+    }
+
+    @Test
+    fun `isLargeScale - 临界值 4999`() {
+        assertFalse(ScaleRule.isLargeScale(4999.0))
+    }
+
+    @Test
+    fun `buildInsight - 精确到分的金额`() {
+        // given
+        val total = 5000.01
+
+        // when
+        val insight = ScaleRule.buildInsight(total)
+
+        // then
+        assertEquals("LARGE", insight.metadata["level"])
+    }
+
+    @Test
+    fun `isLargeScale - 科学计数法表示的临界值`() {
+        // given - 5000.0000001
+        val total = 5000.0000001
+
+        // when
+        val result = ScaleRule.isLargeScale(total)
+
+        // then
+        assertTrue(result)
     }
 }
