@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.wealth.manager.R
+import com.wealth.manager.ui.theme.DesignTokens
 import com.wealth.manager.ui.theme.Income
 import com.wealth.manager.ui.theme.Surface
 import com.wealth.manager.ui.theme.TextSecondary
@@ -103,7 +104,7 @@ fun DashboardScreen(
                 title = { },
                 navigationIcon = {
                     IconButton(onClick = onOpenDrawer) {
-                        Icon(Icons.Default.Menu, "菜单", tint = Color.White)
+                        Icon(Icons.Default.Menu, "菜单", tint = MaterialTheme.colorScheme.onPrimary)
                     }
                 },
                 actions = {
@@ -111,7 +112,7 @@ fun DashboardScreen(
                         showAiInsightsDialog = true
                         viewModel.generateRealtimeInsight() 
                     }) {
-                        Icon(Icons.Default.Lightbulb, "AI 洞察", tint = Color.White)
+                        Icon(Icons.Default.Lightbulb, "AI 洞察", tint = MaterialTheme.colorScheme.onPrimary)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
@@ -254,19 +255,19 @@ fun MonthOverviewCard(
             Image(painter = painterResource(id = bgResourceId), contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         }
 
-        Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Black.copy(0.4f), Color.Transparent, Color.Black.copy(0.3f)))))
+        Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.4f), Color.Transparent, Color.Black.copy(alpha = 0.3f)))))
 
-        Column(modifier = Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 24.dp, vertical = 24.dp), verticalArrangement = Arrangement.Bottom) {
-            Text(text = "本月支出", style = MaterialTheme.typography.labelLarge, color = Color.White.copy(0.9f))
+        Column(modifier = Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = DesignTokens.Spacing.lg, vertical = DesignTokens.Spacing.lg), verticalArrangement = Arrangement.Bottom) {
+            Text(text = "本月支出", style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = 0.9f))
             Text(text = "¥ ${NumberFormat.getNumberInstance(Locale.CHINA).format(monthTotal)}", style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold, fontSize = 42.sp), color = Color.White)
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(DesignTokens.Spacing.xl))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
-                    Text("本月收入", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(0.8f))
+                    Text("本月收入", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.8f))
                     Text("¥ ${NumberFormat.getNumberInstance(Locale.CHINA).format(monthIncome)}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = Color.White)
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("当月近7日支出", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(0.8f))
+                    Text("当月近7日支出", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.8f))
                     Text("¥ ${NumberFormat.getNumberInstance(Locale.CHINA).format(recent7DaysTotal)}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = Color.White)
                 }
             }
