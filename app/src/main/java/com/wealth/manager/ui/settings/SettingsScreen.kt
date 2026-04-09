@@ -695,7 +695,7 @@ fun ThemeColorItem(
                 Icon(
                     imageVector = Icons.Default.Check,
                     contentDescription = null,
-                    tint = if (color == ThemeGold) Color.Black else Color.White,
+                    tint = if (color == ThemeGold) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(24.dp)
                 )
             }
