@@ -7,11 +7,11 @@ import androidx.compose.ui.graphics.Color
 
 fun getLightColorScheme(primaryColor: Color) = lightColorScheme(
     primary = primaryColor,
-    onPrimary = OnPrimary,
+    onPrimary = PrimaryDark,
     background = Background,
-    onBackground = OnBackground,
+    onBackground = TextPrimary,
     surface = Surface,
-    onSurface = OnSurface,
+    onSurface = TextPrimary,
     surfaceVariant = SurfaceElevated,
     secondary = TextSecondary,
     error = Warning,
