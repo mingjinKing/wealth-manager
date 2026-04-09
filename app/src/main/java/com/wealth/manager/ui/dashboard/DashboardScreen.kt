@@ -85,25 +85,12 @@ fun DashboardScreen(
     val state by viewModel.state.collectAsState()
     var selectedExpense by remember { mutableStateOf<ExpenseItem?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    val context = LocalContext.current
-
-    // 使用 GetContent 替代 PickVisualMedia，以便在更多手机上弹出“相册/图库”选择入口
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        uri?.let {
-            viewModel.updateCustomBackground(it.toString())
-        }
-    }
-
-    // 默认背景资源
+    
     val backgroundResources = listOf(
         R.drawable.background_1,
         R.drawable.background_2
     )
     var currentBgIndex by remember { mutableIntStateOf(0) }
-
-    // AI洞察弹窗状态
     var showAiInsightsDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -116,62 +103,36 @@ fun DashboardScreen(
                 title = { },
                 navigationIcon = {
                     IconButton(onClick = onOpenDrawer) {
-                        Icon(
-                            imageVector = Icons.Default.Menu,
-                            contentDescription = "菜单",
-                            tint = Color.White
-                        )
+                        Icon(Icons.Default.Menu, "菜单", tint = Color.White)
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showAiInsightsDialog = true }) {
-                        Icon(
-                            imageVector = Icons.Default.Lightbulb,
-                            contentDescription = "AI 洞察",
-                            tint = Color.White
-                        )
+                    IconButton(onClick = { 
+                        showAiInsightsDialog = true
+                        viewModel.generateRealtimeInsight() 
+                    }) {
+                        Icon(Icons.Default.Lightbulb, "AI 洞察", tint = Color.White)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = Color.Transparent
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { onNavigateToAdd(null) },
                 containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = CircleShape
-            ) {
-                Icon(imageVector = Icons.Default.Add, contentDescription = "添加记账")
-            }
+            ) { Icon(Icons.Default.Add, "记账") }
         },
-        floatingActionButtonPosition = FabPosition.Center,
-        containerColor = MaterialTheme.colorScheme.background
+        floatingActionButtonPosition = FabPosition.Center
     ) { paddingValues ->
         val listState = rememberLazyListState()
-
-        LaunchedEffect(listState) {
-            snapshotFlow {
-                val layoutInfo = listState.layoutInfo
-                val totalItems = layoutInfo.totalItemsCount
-                val lastVisibleItem = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-                lastVisibleItem >= totalItems - 3
-            }.collect { shouldLoadMore ->
-                if (shouldLoadMore) {
-                    viewModel.loadMoreExpenses()
-                }
-            }
-        }
 
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // 1. 概览层
             item {
                 MonthOverviewCard(
                     monthTotal = state.monthTotal,
@@ -179,11 +140,10 @@ fun DashboardScreen(
                     recent7DaysTotal = state.recent7DaysTotal,
                     bgResourceId = backgroundResources[currentBgIndex],
                     customBgUri = state.customBackgroundImageUri,
-                    onAiInsightsClick = { showAiInsightsDialog = true }
+                    onBgClick = { currentBgIndex = (currentBgIndex + 1) % backgroundResources.size }
                 )
             }
 
-            // 2. 激励层
             state.wowPreview?.let { wow ->
                 item {
                     Box(modifier = Modifier.padding(horizontal = 16.dp)) {
@@ -192,29 +152,8 @@ fun DashboardScreen(
                 }
             }
 
-            // 3. 记账列表
             if (state.dailyExpenses.isEmpty() && !state.isLoading) {
-                item {
-                    Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = Surface),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier.fillMaxWidth().padding(40.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(text = "暂无记账记录", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(text = "点击 + 开始记账", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-                                }
-                            }
-                        }
-                    }
-                }
+                item { EmptyListPlaceholder() }
             } else {
                 state.dailyExpenses.forEach { daily ->
                     item(key = daily.dateMillis) {
@@ -232,71 +171,63 @@ fun DashboardScreen(
                 }
             }
 
-            if (state.isLoadingMore) {
-                item {
-                    Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.primary)
-                    }
-                }
-            }
-
             item { Spacer(modifier = Modifier.height(80.dp)) }
         }
 
         if (showDeleteDialog && selectedExpense != null) {
-            AlertDialog(
-                onDismissRequest = { showDeleteDialog = false },
-                title = { Text("删除账单") },
-                text = { Text("确定删除这笔 ${selectedExpense!!.expense.amount} 元的账单吗？") },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            viewModel.deleteExpense(selectedExpense!!.expense.id)
-                            showDeleteDialog = false
-                            selectedExpense = null
-                        }
-                    ) {
-                        Text("删除", color = Warning)
-                    }
+            DeleteConfirmDialog(
+                amount = selectedExpense!!.expense.amount,
+                onConfirm = {
+                    viewModel.deleteExpense(selectedExpense!!.expense.id)
+                    showDeleteDialog = false
                 },
-                dismissButton = {
-                    TextButton(onClick = { showDeleteDialog = false }) {
-                        Text("取消")
-                    }
-                }
+                onDismiss = { showDeleteDialog = false }
             )
         }
 
-        // AI洞察弹窗
         if (showAiInsightsDialog) {
-            AlertDialog(
-                onDismissRequest = { showAiInsightsDialog = false },
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = "💡", style = MaterialTheme.typography.titleLarge)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("AI 洞察", fontWeight = FontWeight.Bold)
-                    }
-                },
-                text = {
-                    state.wowPreview?.let { wow ->
-                        WowPreviewCard(wowPreview = wow)
-                    } ?: run {
-                        Column(
-                            modifier = Modifier.fillMaxWidth().padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text("暂无洞察数据", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text("记账一段时间后，AI 会为你生成消费洞察", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-                        }
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = { showAiInsightsDialog = false }) {
-                        Text("关闭")
-                    }
-                }
+            AiInsightDialog(
+                isAnalyzing = state.isAnalyzingInsight,
+                text = state.aiInsightText,
+                onDismiss = { showAiInsightsDialog = false }
+            )
+        }
+    }
+}
+
+@Composable
+fun WowPreviewCard(wowPreview: WowPreview) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(text = "✨", fontSize = 18.sp)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "钱包守护成功！",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "本周少花 ¥${NumberFormat.getNumberInstance(Locale.CHINA).format(wowPreview.savedAmount)}",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            
+            Text(
+                text = "平时周均支出 ¥${NumberFormat.getNumberInstance(Locale.CHINA).format(wowPreview.lastWeekAmount)}，省了不少呢！",
+                style = MaterialTheme.typography.labelSmall,
+                color = TextSecondary
             )
         }
     }
@@ -309,95 +240,34 @@ fun MonthOverviewCard(
     recent7DaysTotal: Double,
     bgResourceId: Int,
     customBgUri: String?,
-    onAiInsightsClick: () -> Unit
+    onBgClick: () -> Unit
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(4f / 3f)
-            .clickable { onAiInsightsClick() }
+            .clickable { onBgClick() }
     ) {
         if (customBgUri != null) {
-            AsyncImage(
-                model = customBgUri,
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
+            AsyncImage(model = customBgUri, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         } else {
-            Image(
-                painter = painterResource(id = bgResourceId),
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
+            Image(painter = painterResource(id = bgResourceId), contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         }
 
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = 0.4f),
-                            Color.Transparent,
-                            Color.Black.copy(alpha = 0.3f)
-                        )
-                    )
-                )
-        )
+        Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Black.copy(0.4f), Color.Transparent, Color.Black.copy(0.3f)))))
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .padding(horizontal = 24.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.Bottom
-        ) {
-            Text(
-                text = "本月支出",
-                style = MaterialTheme.typography.labelLarge,
-                color = Color.White.copy(alpha = 0.9f)
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "¥ ${NumberFormat.getNumberInstance(Locale.CHINA).format(monthTotal)}",
-                style = MaterialTheme.typography.displayMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 42.sp
-                ),
-                color = Color.White
-            )
-
-            Spacer(modifier = Modifier.height(28.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+        Column(modifier = Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 24.dp, vertical = 24.dp), verticalArrangement = Arrangement.Bottom) {
+            Text(text = "本月支出", style = MaterialTheme.typography.labelLarge, color = Color.White.copy(0.9f))
+            Text(text = "¥ ${NumberFormat.getNumberInstance(Locale.CHINA).format(monthTotal)}", style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold, fontSize = 42.sp), color = Color.White)
+            Spacer(Modifier.height(28.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
-                    Text(
-                        text = "本月收入",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color.White.copy(alpha = 0.8f)
-                    )
-                    Text(
-                        text = "¥ ${NumberFormat.getNumberInstance(Locale.CHINA).format(monthIncome)}",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-                        color = Color.White
-                    )
+                    Text("本月收入", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(0.8f))
+                    Text("¥ ${NumberFormat.getNumberInstance(Locale.CHINA).format(monthIncome)}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = Color.White)
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = "当月近7日支出",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color.White.copy(alpha = 0.8f)
-                    )
-                    Text(
-                        text = "¥ ${NumberFormat.getNumberInstance(Locale.CHINA).format(recent7DaysTotal)}",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-                        color = Color.White
-                    )
+                    Text("当月近7日支出", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(0.8f))
+                    Text("¥ ${NumberFormat.getNumberInstance(Locale.CHINA).format(recent7DaysTotal)}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = Color.White)
                 }
             }
         }
@@ -405,50 +275,70 @@ fun MonthOverviewCard(
 }
 
 @Composable
-fun DailyExpenseCard(
-    dailyExpense: DailyExpense,
-    onExpenseClick: (ExpenseItem) -> Unit,
-    onExpenseLongClick: (ExpenseItem) -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = dailyExpense.dateLabel,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "¥ ${NumberFormat.getNumberInstance(Locale.CHINA).format(dailyExpense.dayTotal)}",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            dailyExpense.expenses.forEach { item ->
-                DailyExpenseItem(
-                    item = item,
-                    onClick = { onExpenseClick(item) },
-                    onLongClick = { onExpenseLongClick(item) }
-                )
-                if (item != dailyExpense.expenses.last()) {
-                    Spacer(modifier = Modifier.height(8.dp))
+private fun EmptyListPlaceholder() {
+    Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Surface)) {
+            Box(modifier = Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("暂无记账记录", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                    Text("点击 + 开始记账", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DeleteConfirmDialog(amount: Double, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("删除账单") },
+        text = { Text("确定删除这笔 $amount 元的账单吗？") },
+        confirmButton = { TextButton(onClick = onConfirm) { Text("删除", color = Warning) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+    )
+}
+
+@Composable
+private fun AiInsightDialog(isAnalyzing: Boolean, text: String?, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { 
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("💡", style = MaterialTheme.typography.titleLarge)
+                Spacer(Modifier.width(8.dp))
+                Text("旺财智能洞察", fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                if (isAnalyzing) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
+                        Spacer(Modifier.height(12.dp))
+                        Text("旺财正在复盘您的消费...", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                    }
+                } else {
+                    Text(text ?: "继续保持良好的记账习惯哦！", style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 26.sp))
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("知道了") } }
+    )
+}
+
+@Composable
+fun DailyExpenseCard(dailyExpense: DailyExpense, onExpenseClick: (ExpenseItem) -> Unit, onExpenseLongClick: (ExpenseItem) -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Surface) ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(dailyExpense.dateLabel, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium)
+                Text("¥ ${NumberFormat.getNumberInstance(Locale.CHINA).format(dailyExpense.dayTotal)}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium)
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            dailyExpense.expenses.forEach { item ->
+                DailyExpenseItem(item = item, onClick = { onExpenseClick(item) }, onLongClick = { onExpenseLongClick(item) })
+                if (item != dailyExpense.expenses.last()) Spacer(modifier = Modifier.height(8.dp))
             }
         }
     }
@@ -456,119 +346,17 @@ fun DailyExpenseCard(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun DailyExpenseItem(
-    item: ExpenseItem,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit
-) {
+fun DailyExpenseItem(item: ExpenseItem, onClick: () -> Unit, onLongClick: () -> Unit) {
     val isIncome = item.category.type == "INCOME"
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick
-            )
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+    Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = item.category.icon,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
+            Box(modifier = Modifier.size(32.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) { Text(item.category.icon, style = MaterialTheme.typography.bodySmall) }
             Spacer(modifier = Modifier.width(10.dp))
             Column {
-                Text(
-                    text = item.category.name,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                if (item.expense.note.isNotBlank()) {
-                    Text(
-                        text = item.expense.note,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                Text(item.category.name, style = MaterialTheme.typography.bodyMedium)
+                if (item.expense.note.isNotBlank()) Text(item.expense.note, style = MaterialTheme.typography.bodySmall, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
-        Text(
-            text = "${if (isIncome) "+" else "-"}¥ ${NumberFormat.getNumberInstance(Locale.CHINA).format(item.expense.amount)}",
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
-            color = if (isIncome) Income else Warning
-        )
-    }
-}
-
-@Composable
-fun WowPreviewCard(wowPreview: WowPreview) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "🎉",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "哇时刻",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-                if (wowPreview.isTriggered) {
-                    Text(
-                        text = "已触发",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "本周少花 ¥${NumberFormat.getNumberInstance(Locale.CHINA).format(wowPreview.savedAmount)}",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            if (wowPreview.reason.isNotBlank()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = wowPreview.reason,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextSecondary
-                )
-            }
-        }
+        Text("${if (isIncome) "+" else "-"}¥ ${NumberFormat.getNumberInstance(Locale.CHINA).format(item.expense.amount)}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = if (isIncome) Income else Warning)
     }
 }

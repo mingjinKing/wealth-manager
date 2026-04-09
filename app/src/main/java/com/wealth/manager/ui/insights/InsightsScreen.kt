@@ -35,9 +35,6 @@ import com.wealth.manager.ui.theme.Warning
 import java.text.SimpleDateFormat
 import java.util.*
 
-/**
- * AI 区域显示模式，用于稳定渲染，防止文字流引起的闪烁
- */
 private enum class AiDisplayMode {
     IDLE, LOADING, STREAMING, ERROR
 }
@@ -53,7 +50,6 @@ fun InsightsScreen(
     val dateRangePickerState = rememberDateRangePickerState()
     val scrollState = rememberLazyListState()
 
-    // 核心改进：点击 AI 复盘后，自动聚焦到 AI 区域
     LaunchedEffect(state.isAiAnalyzing, state.aiAnalysisResult) {
         if (state.isAiAnalyzing) {
             if (state.aiAnalysisResult.isNullOrEmpty()) {
@@ -77,7 +73,19 @@ fun InsightsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(text = "钱花哪了", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
+                title = { 
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(text = "🧮", fontSize = 20.sp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "算算账", 
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                    }
+                },
                 actions = {
                     if (!state.isAiAnalyzing) {
                         TextButton(onClick = { viewModel.triggerAiAnalysis() }) {
@@ -283,7 +291,6 @@ fun SummaryOverviewCard(
                 }
             }
 
-            // 累计数据
             if (lifetimeExpense > 0) {
                 Spacer(modifier = Modifier.height(12.dp))
                 HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f))
@@ -346,7 +353,6 @@ fun MonthlyCategoryCard(
                 trackColor = MaterialTheme.colorScheme.outlineVariant
             )
 
-            // 展开显示消费明细
             AnimatedVisibility(
                 visible = isExpanded,
                 enter = expandVertically() + fadeIn(),
@@ -448,7 +454,6 @@ private fun AiAnalysisResultCard(
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(text = renderMarkdown(result), style = MaterialTheme.typography.bodyMedium, lineHeight = 24.sp)
                 
-                // 用户回复后的思考状态
                 AnimatedVisibility(
                     visible = isAnalyzingReply,
                     enter = fadeIn() + expandVertically(),

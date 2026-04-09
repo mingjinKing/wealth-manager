@@ -34,6 +34,9 @@ interface MessageDao {
     
     @Query("DELETE FROM messages WHERE session_id = :sessionId")
     suspend fun deleteMessagesBySession(sessionId: String)
+
+    @Query("DELETE FROM messages")
+    suspend fun deleteAllMessages()
     
     @Query("SELECT COUNT(*) FROM messages")
     suspend fun getMessageCount(): Int

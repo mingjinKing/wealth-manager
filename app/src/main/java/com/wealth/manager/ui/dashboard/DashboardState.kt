@@ -13,7 +13,10 @@ data class DashboardState(
     val dailyExpenses: List<DailyExpense> = emptyList(),
     val wowPreview: WowPreview? = null,
     val categories: List<CategoryEntity> = emptyList(),
-    val customBackgroundImageUri: String? = null // 新增：自定义背景图片 URI
+    val customBackgroundImageUri: String? = null,
+    // AI 洞察相关状态
+    val isAnalyzingInsight: Boolean = false,
+    val aiInsightText: String? = null
 )
 
 data class DailyExpense(
@@ -30,6 +33,7 @@ data class ExpenseItem(
 
 data class WowPreview(
     val savedAmount: Double,
+    val lastWeekAmount: Double, // 对标上周/平均周支出
     val isTriggered: Boolean,
     val reason: String
 )

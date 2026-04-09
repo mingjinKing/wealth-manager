@@ -7,7 +7,6 @@ import com.wealth.manager.data.dao.AssetDao
 import com.wealth.manager.data.dao.BudgetDao
 import com.wealth.manager.data.dao.CategoryDao
 import com.wealth.manager.data.dao.ExpenseDao
-import com.wealth.manager.data.dao.ExtractedFactDao
 import com.wealth.manager.data.dao.MemoryDao
 import com.wealth.manager.data.dao.MessageDao
 import com.wealth.manager.data.dao.SessionDao
@@ -81,11 +80,5 @@ object DatabaseModule {
     @Singleton
     fun provideMemoryDao(database: AppDatabase): MemoryDao {
         return database.memoryDao()
-    }
-
-    @Provides
-    @Singleton
-    fun provideExtractedFactDao(database: AppDatabase): ExtractedFactDao {
-        return database.extractedFactDao()
     }
 }

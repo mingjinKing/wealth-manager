@@ -1,5 +1,6 @@
 package com.wealth.manager.ui.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -12,9 +13,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,7 +41,7 @@ fun MemoryManagementScreen(
         AlertDialog(
             onDismissRequest = { showClearConfirmDialog = false },
             title = { Text("清除所有记忆") },
-            text = { Text("确定要清除所有记忆吗？清除后无法恢复。") },
+            text = { Text("确定要清除所有记忆吗？该操作不可逆。") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -45,7 +49,7 @@ fun MemoryManagementScreen(
                         showClearConfirmDialog = false
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) { Text("清除") }
+                ) { Text("确认清除", fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
                 TextButton(onClick = { showClearConfirmDialog = false }) { Text("取消") }
@@ -56,13 +60,13 @@ fun MemoryManagementScreen(
     if (showRebuildConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showRebuildConfirmDialog = false },
-            title = { Text("确认重建记忆") },
-            text = { Text("确认重建？将清空现有所有记忆，从历史对话中重新提炼。") },
+            title = { Text("全量重建记忆") },
+            text = { Text("系统将扫描所有历史对话，利用 AI 重新沉淀您的画像。这可能需要 1-2 分钟，确定开始吗？") },
             confirmButton = {
                 TextButton(onClick = {
                     showRebuildConfirmDialog = false
                     viewModel.rebuildMemories()
-                }) { Text("重建") }
+                }) { Text("开始重建", fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
                 TextButton(onClick = { showRebuildConfirmDialog = false }) { Text("取消") }
@@ -73,22 +77,24 @@ fun MemoryManagementScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("记忆管理") },
+                title = { Text("记忆系统", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                     }
                 },
                 actions = {
-                    IconButton(
+                    TextButton(
                         onClick = { showRebuildConfirmDialog = true },
                         enabled = !state.isLoading
                     ) {
-                        Icon(Icons.Default.RestartAlt, contentDescription = "记忆重建")
+                        Icon(Icons.Default.RestartAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("重建画像", style = MaterialTheme.typography.labelLarge)
                     }
                     if (state.memories.isNotEmpty()) {
                         IconButton(onClick = { showClearConfirmDialog = true }) {
-                            Icon(Icons.Default.DeleteSweep, contentDescription = "清除全部")
+                            Icon(Icons.Default.DeleteSweep, contentDescription = "清除", tint = MaterialTheme.colorScheme.error)
                         }
                     }
                 }
@@ -96,12 +102,18 @@ fun MemoryManagementScreen(
         },
         snackbarHost = {
             state.snackbarMessage?.let { msg ->
-                Snackbar(
+                Card(
                     modifier = Modifier.padding(16.dp),
-                    action = {
-                        TextButton(onClick = { viewModel.clearSnackbar() }) { Text("关闭") }
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(msg, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                        TextButton(onClick = { viewModel.clearSnackbar() }) { Text("知道了") }
                     }
-                ) { Text(msg) }
+                }
             }
         }
     ) { paddingValues ->
@@ -111,63 +123,51 @@ fun MemoryManagementScreen(
                 .padding(paddingValues)
         ) {
             if (state.isLoading && state.memories.isEmpty()) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                Column(modifier = Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(strokeWidth = 3.dp)
+                    Spacer(Modifier.height(16.dp))
+                    Text("分析中...", style = MaterialTheme.typography.bodySmall)
+                }
             } else if (state.memories.isEmpty()) {
                 Column(
                     modifier = Modifier.align(Alignment.Center),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        text = "暂无记忆",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "点击右上角按钮重建记忆",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Text("记忆库空空如也", color = MaterialTheme.colorScheme.outline)
                     Spacer(modifier = Modifier.height(16.dp))
-                    OutlinedButton(onClick = { showRebuildConfirmDialog = true }) {
-                        Icon(Icons.Default.RestartAlt, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("重建记忆")
+                    Button(onClick = { showRebuildConfirmDialog = true }) {
+                        Text("点击初始化画像")
                     }
                 }
             } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
                     item {
                         Text(
-                            text = "这些是 AI 从你的对话中提炼的记忆，会在「怎么花」时作为参考",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(vertical = 4.dp)
+                            text = "共提炼 ${state.memories.size} 条核心记忆",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(16.dp, 8.dp)
                         )
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                     }
                     items(state.memories, key = { it.id }) { memory ->
-                        MemoryCard(
+                        MemoryListItem(
                             memory = memory,
                             onDelete = { viewModel.deleteMemory(memory) }
                         )
                     }
+                    item { Spacer(Modifier.height(32.dp)) }
                 }
             }
 
             if (state.isLoading && state.memories.isNotEmpty()) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter))
             }
         }
     }
 }
 
 @Composable
-private fun MemoryCard(
+private fun MemoryListItem(
     memory: MemoryItem,
     onDelete: () -> Unit
 ) {
@@ -176,13 +176,11 @@ private fun MemoryCard(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("删除记忆") },
-            text = { Text("确定要删除这条记忆吗？") },
+            title = { Text("移除此项？") },
             confirmButton = {
-                TextButton(
-                    onClick = { onDelete(); showDeleteConfirm = false },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) { Text("删除") }
+                TextButton(onClick = { onDelete(); showDeleteConfirm = false }) { 
+                    Text("确认移除", color = MaterialTheme.colorScheme.error) 
+                }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) { Text("取消") }
@@ -190,73 +188,65 @@ private fun MemoryCard(
         )
     }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        shape = MaterialTheme.shapes.extraSmall
-                    ) {
-                        Text(
-                            text = memory.key,
-                            style = MaterialTheme.typography.labelSmall,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = getSourceLabel(memory.source),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.outline
-                    )
-                }
-                IconButton(
-                    onClick = { showDeleteConfirm = true },
-                    modifier = Modifier.size(24.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = "删除",
-                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = memory.summary,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { /* 可查看详情 */ }
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // 紧凑标签 - 严格区分 长期 vs 短期
+            Surface(
+                color = if (memory.isLongTerm) Color(0xFFE3F2FD) else Color(0xFFF1F8E9),
+                shape = MaterialTheme.shapes.extraSmall
             ) {
                 Text(
-                    text = "${(memory.confidence * 100).toInt()}% 靠谱 · ${formatTime(memory.updatedAt)}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline
+                    text = if (memory.isLongTerm) "长期记忆" else "短期记忆",
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                    color = if (memory.isLongTerm) Color(0xFF1976D2) else Color(0xFF388E3C)
+                )
+            }
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = memory.displayKey,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.outline,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.weight(1f))
+            Text(
+                text = formatTime(memory.updatedAt),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.outline
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Row(verticalAlignment = Alignment.Top) {
+            Text(
+                text = memory.summary,
+                style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 20.sp),
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
+            
+            IconButton(
+                onClick = { showDeleteConfirm = true },
+                modifier = Modifier.size(32.dp).padding(start = 8.dp)
+            ) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = "删除",
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
-    }
-}
-
-private fun getSourceLabel(source: String): String {
-    return when (source) {
-        "ai_analysis" -> "AI 分析"
-        "user_input" -> "用户输入"
-        "auto_extract" -> "自动提取"
-        "extracted_fact" -> "长期事实"
-        else -> source
+        
+        Spacer(modifier = Modifier.height(10.dp))
+        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     }
 }
 
@@ -265,11 +255,11 @@ private fun formatTime(timestamp: Long): String {
     val diff = now - timestamp
     return when {
         diff < 60_000 -> "刚刚"
-        diff < 3600_000 -> "${diff / 60_000}m前"
-        diff < 86400_000 -> "${diff / 3600_000}h前"
-        diff < 604800_000 -> "${diff / 86400_000}d前"
+        diff < 3600_000 -> "${diff / 60_000}分钟前"
+        diff < 86400_000 -> "${diff / 3600_000}小时前"
+        diff < 172800_000 -> "昨天"
         else -> {
-            val sdf = java.text.SimpleDateFormat("MM-dd", java.util.Locale.getDefault())
+            val sdf = java.text.SimpleDateFormat("MM-dd", Locale.getDefault())
             sdf.format(java.util.Date(timestamp))
         }
     }

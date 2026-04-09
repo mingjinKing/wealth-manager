@@ -27,60 +27,56 @@ class AchievementsViewModel @Inject constructor(
 
     private val prefs = context.getSharedPreferences("achievements_prefs", Context.MODE_PRIVATE)
 
-    private val _state = MutableStateFlow(loadInitialState())
+    // 将可见性状态转为独立的 Flow，确保响应式更新且不被业务数据覆盖
+    private val _isAssetVisible = MutableStateFlow(prefs.getBoolean("is_asset_visible", true))
+    private val _isGoalVisible = MutableStateFlow(prefs.getBoolean("is_goal_visible", true))
+    private val _isBudgetVisible = MutableStateFlow(prefs.getBoolean("is_budget_visible", true))
+
+    private val _state = MutableStateFlow(AchievementsState())
     val state: StateFlow<AchievementsState> = _state.asStateFlow()
 
     init {
         loadData()
     }
 
-    private fun loadInitialState(): AchievementsState {
-        return AchievementsState(
-            assetGoal = prefs.getFloat("asset_goal", 100000f).toDouble(),
-            goalStartDate = prefs.getLong("goal_start_date", System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000),
-            goalDate = prefs.getLong("goal_date", System.currentTimeMillis() + 365L * 24 * 60 * 60 * 1000),
-            isAssetVisible = prefs.getBoolean("is_asset_visible", true),
-            isGoalVisible = prefs.getBoolean("is_goal_visible", true),
-            isBudgetVisible = prefs.getBoolean("is_budget_visible", true),
-            isTrendVisible = prefs.getBoolean("is_trend_visible", true)
-        )
-    }
-
     private fun loadData() {
         val calendar = Calendar.getInstance()
         val currentMonthStr = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(calendar.time)
         
-        // 获取本月起止时间
+        // 本月范围
         calendar.set(Calendar.DAY_OF_MONTH, 1)
         calendar.set(Calendar.HOUR_OF_DAY, 0)
         calendar.set(Calendar.MINUTE, 0)
         calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
         val monthStart = calendar.timeInMillis
-        
         calendar.set(Calendar.DAY_OF_MONTH, calendar.getActualMaximum(Calendar.DAY_OF_MONTH))
         calendar.set(Calendar.HOUR_OF_DAY, 23)
         calendar.set(Calendar.MINUTE, 59)
         calendar.set(Calendar.SECOND, 59)
-        calendar.set(Calendar.MILLISECOND, 999)
         val monthEnd = calendar.timeInMillis
 
-        // 获取本周起止时间
+        // 本周范围
         val weeklyCalendar = Calendar.getInstance()
         weeklyCalendar.set(Calendar.DAY_OF_WEEK, weeklyCalendar.firstDayOfWeek)
         weeklyCalendar.set(Calendar.HOUR_OF_DAY, 0)
-        weeklyCalendar.set(Calendar.MINUTE, 0)
-        weeklyCalendar.set(Calendar.SECOND, 0)
-        weeklyCalendar.set(Calendar.MILLISECOND, 0)
         val weekStart = weeklyCalendar.timeInMillis
         weeklyCalendar.add(Calendar.DAY_OF_WEEK, 6)
         weeklyCalendar.set(Calendar.HOUR_OF_DAY, 23)
-        weeklyCalendar.set(Calendar.MINUTE, 59)
-        weeklyCalendar.set(Calendar.SECOND, 59)
-        weeklyCalendar.set(Calendar.MILLISECOND, 999)
         val weekEnd = weeklyCalendar.timeInMillis
 
         viewModelScope.launch {
+            // 目标和日期的配置 Flow (从 Prefs 读取)
+            val configFlow = flow {
+                while(true) {
+                    emit(Triple(
+                        prefs.getFloat("asset_goal", 100000f).toDouble(),
+                        prefs.getLong("goal_start_date", System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000),
+                        prefs.getLong("goal_date", System.currentTimeMillis() + 365L * 24 * 60 * 60 * 1000)
+                    ))
+                    kotlinx.coroutines.delay(1000) // 简单轮询配置变更，或者在更新时触发 emit
+                }
+            }.distinctUntilChanged()
+
             combine(
                 expenseDao.getExpensesByDateRange(monthStart, monthEnd),
                 expenseDao.getExpensesByDateRange(weekStart, weekEnd),
@@ -88,8 +84,12 @@ class AchievementsViewModel @Inject constructor(
                 assetDao.getTotalAssets(),
                 assetDao.getTotalLiabilities(),
                 budgetDao.getGlobalBudget(currentMonthStr),
-                budgetDao.getGlobalBudget("WEEKLY")
-            ) { args: Array<Any?> ->
+                budgetDao.getGlobalBudget("WEEKLY"),
+                _isAssetVisible,
+                _isGoalVisible,
+                _isBudgetVisible,
+                configFlow
+            ) { args ->
                 val monthExpenses = args[0] as List<com.wealth.manager.data.entity.ExpenseEntity>? ?: emptyList()
                 val weekExpenses = args[1] as List<com.wealth.manager.data.entity.ExpenseEntity>? ?: emptyList()
                 val allCategories = args[2] as List<com.wealth.manager.data.entity.CategoryEntity>? ?: emptyList()
@@ -97,19 +97,21 @@ class AchievementsViewModel @Inject constructor(
                 val totalLiabilities = args[4] as Double? ?: 0.0
                 val monthlyBudget = args[5] as BudgetEntity?
                 val weeklyBudget = args[6] as BudgetEntity?
+                val assetVisible = args[7] as Boolean
+                val goalVisible = args[8] as Boolean
+                val budgetVisible = args[9] as Boolean
+                val (goal, start, end) = args[10] as Triple<Double, Long, Long>
 
                 val incomeCategoryIds = allCategories.filter { it.type == "INCOME" }.map { it.id }.toSet()
-                
-                // 仅计算支出类型账单的总额
                 val monthlySpent = monthExpenses.filter { it.categoryId !in incomeCategoryIds }.sumOf { it.amount }
                 val weeklySpent = weekExpenses.filter { it.categoryId !in incomeCategoryIds }.sumOf { it.amount }
                 
                 val netWorth = totalAssets + totalLiabilities
                 val activeType = if ((monthlyBudget?.amount ?: 0.0) <= 0.0 && (weeklyBudget?.amount ?: 0.0) > 0.0) "WEEKLY" else "MONTHLY"
 
-                val trendPoints = calculateTrendPoints(netWorth, _state.value.assetGoal, _state.value.goalStartDate, _state.value.goalDate)
+                val trendPoints = calculateTrendPoints(netWorth, goal, start, end)
 
-                _state.value.copy(
+                AchievementsState(
                     isLoading = false,
                     netWorth = netWorth,
                     monthlyBudget = monthlyBudget?.amount ?: 0.0,
@@ -117,6 +119,12 @@ class AchievementsViewModel @Inject constructor(
                     weeklyBudget = weeklyBudget?.amount ?: 0.0,
                     weeklySpent = weeklySpent,
                     budgetType = activeType,
+                    isAssetVisible = assetVisible,
+                    isGoalVisible = goalVisible,
+                    isBudgetVisible = budgetVisible,
+                    assetGoal = goal,
+                    goalStartDate = start,
+                    goalDate = end,
                     trendPoints = trendPoints
                 )
             }.collect { newState ->
@@ -135,7 +143,6 @@ class AchievementsViewModel @Inject constructor(
         for (i in 0..5) {
             val time = startDate + i * step
             val expected = (goalAmount / 5) * i
-            
             val actual = if (time <= System.currentTimeMillis()) {
                 val progress = (System.currentTimeMillis() - startDate).toDouble() / totalDuration
                 val currentProgressInPath = i.toDouble() / 5
@@ -150,27 +157,21 @@ class AchievementsViewModel @Inject constructor(
     }
 
     fun toggleAssetVisibility() {
-        val newVal = !_state.value.isAssetVisible
+        val newVal = !_isAssetVisible.value
         prefs.edit().putBoolean("is_asset_visible", newVal).apply()
-        _state.value = _state.value.copy(isAssetVisible = newVal)
+        _isAssetVisible.value = newVal
     }
 
     fun toggleGoalVisibility() {
-        val newVal = !_state.value.isGoalVisible
+        val newVal = !_isGoalVisible.value
         prefs.edit().putBoolean("is_goal_visible", newVal).apply()
-        _state.value = _state.value.copy(isGoalVisible = newVal)
+        _isGoalVisible.value = newVal
     }
 
     fun toggleBudgetVisibility() {
-        val newVal = !_state.value.isBudgetVisible
+        val newVal = !_isBudgetVisible.value
         prefs.edit().putBoolean("is_budget_visible", newVal).apply()
-        _state.value = _state.value.copy(isBudgetVisible = newVal)
-    }
-
-    fun toggleTrendVisibility() {
-        val newVal = !_state.value.isTrendVisible
-        prefs.edit().putBoolean("is_trend_visible", newVal).apply()
-        _state.value = _state.value.copy(isTrendVisible = newVal)
+        _isBudgetVisible.value = newVal
     }
 
     fun updateBudget(type: String, amount: Double) {
@@ -182,14 +183,12 @@ class AchievementsViewModel @Inject constructor(
         
         viewModelScope.launch {
             val otherKey = if (type == "MONTHLY") "WEEKLY" else SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date())
-            
             val current = budgetDao.getGlobalBudget(key).first()
             if (current != null) {
                 budgetDao.updateBudget(current.copy(amount = amount))
             } else {
                 budgetDao.insertBudget(BudgetEntity(amount = amount, month = key))
             }
-            
             val other = budgetDao.getGlobalBudget(otherKey).first()
             if (other != null) {
                 budgetDao.updateBudget(other.copy(amount = 0.0))
@@ -204,21 +203,12 @@ class AchievementsViewModel @Inject constructor(
             .putLong("goal_date", date)
             .putLong("goal_start_date", startTime)
             .apply()
-
-        _state.value = _state.value.copy(
-            assetGoal = goal, 
-            goalDate = date,
-            goalStartDate = startTime
-        )
+        // 触发重新加载数据（因为配置变了）
         loadData()
     }
 }
 
-data class TrendPoint(
-    val label: String,
-    val expected: Double,
-    val actual: Double?
-)
+data class TrendPoint(val label: String, val expected: Double, val actual: Double?)
 
 data class AchievementsState(
     val isLoading: Boolean = true,
@@ -228,15 +218,11 @@ data class AchievementsState(
     val weeklyBudget: Double = 0.0,
     val weeklySpent: Double = 0.0,
     val budgetType: String = "MONTHLY",
-    
     val isAssetVisible: Boolean = true,
     val isGoalVisible: Boolean = true,
     val isBudgetVisible: Boolean = true,
-    val isTrendVisible: Boolean = true,
-
     val assetGoal: Double = 100000.0,
-    val goalStartDate: Long = System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000,
-    val goalDate: Long = System.currentTimeMillis() + 365L * 24 * 60 * 60 * 1000,
-    
+    val goalStartDate: Long = 0,
+    val goalDate: Long = 0,
     val trendPoints: List<TrendPoint> = emptyList()
 )

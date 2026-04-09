@@ -14,9 +14,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.MilitaryTech
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,7 +28,6 @@ import android.widget.Toast
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.*
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -35,10 +35,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.wealth.manager.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.withStyle
 import androidx.compose.foundation.text.BasicText
 
 /**
@@ -197,7 +193,14 @@ private fun HistoryListScreen(onBackClick: () -> Unit, onSessionClick: (Conversa
     var sessions by remember { mutableStateOf(emptyList<ConversationSession>()) }
     LaunchedEffect(refreshTrigger) { sessions = viewModel.loadHistoryList() }
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        TopAppBar(title = { Text("历史记录", fontWeight = FontWeight.Bold) }, navigationIcon = { IconButton(onClick = onBackClick) { Icon(Icons.AutoMirrored.Filled.Send, "返回") } })
+        TopAppBar(
+            title = { Text("历史记录", fontWeight = FontWeight.Bold) }, 
+            navigationIcon = { 
+                IconButton(onClick = onBackClick) { 
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回") 
+                } 
+            }
+        )
         if (sessions.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("暂无历史记录", color = TextSecondary)
@@ -234,10 +237,18 @@ private fun HistorySessionCard(session: ConversationSession, onClick: () -> Unit
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun HowToSpendTopBar(onNewConversation: () -> Unit, onHistoryClick: () -> Unit) {
-    TopAppBar(title = { Text("💭 怎么花", fontWeight = FontWeight.Bold) }, actions = {
-        IconButton(onClick = onNewConversation) { Icon(Icons.Default.Add, "新建", tint = Color.Black.copy(0.6f)) }
-        IconButton(onClick = onHistoryClick) { Icon(Icons.Default.MilitaryTech, "历史", tint = Color.Black.copy(0.6f)) }
-    }, colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background))
+    TopAppBar(
+        title = { Text("💭 怎么花", fontWeight = FontWeight.Bold) }, 
+        actions = {
+            IconButton(onClick = onNewConversation) { 
+                Icon(Icons.Default.Add, "新建", tint = Color.Black.copy(0.6f)) 
+            }
+            IconButton(onClick = onHistoryClick) { 
+                Icon(Icons.Default.History, "历史", tint = Color.Black.copy(0.6f)) 
+            }
+        }, 
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
+    )
 }
 
 @Composable

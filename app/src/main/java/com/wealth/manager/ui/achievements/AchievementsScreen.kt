@@ -131,7 +131,19 @@ fun AchievementsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(text = "攒点钱", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
+                title = { 
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(text = "🍯", fontSize = 20.sp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "攒点钱", 
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                    }
+                },
                 actions = {
                     IconButton(onClick = { showHelpDialog = true }) {
                         Icon(imageVector = Icons.AutoMirrored.Filled.HelpOutline, contentDescription = "帮助")
@@ -179,14 +191,14 @@ fun AchievementsScreen(
                     val timeProgress = 1f - (daysLeft.toFloat() / totalDays).coerceIn(0f, 1f)
                     
                     GoalCard(
-                        title = "资产目标",
-                        description = "目标：${if (state.isAssetVisible && state.isGoalVisible) "¥" + formatAmount(state.assetGoal) else "****"} (${if(daysLeft > 0) "${daysLeft}天后截止" else "已截止"})",
-                        currentInfo = "当前净资产：${if (state.isAssetVisible && state.isGoalVisible) "¥" + formatAmount(state.netWorth) else "****"}",
+                        title = "资产目标挑战",
+                        description = "目标：${if (state.isGoalVisible) "¥" + formatAmount(state.assetGoal) else "****"} (${if(daysLeft > 0) "${daysLeft}天后截止" else "已截止"})",
+                        currentInfo = "当前净资产：${if (state.isGoalVisible) "¥" + formatAmount(state.netWorth) else "****"}",
                         progress = (state.netWorth / state.assetGoal).coerceAtMost(1.0).toFloat(),
                         timeProgress = timeProgress,
-                        isVisible = state.isAssetVisible && state.isGoalVisible,
+                        isVisible = state.isGoalVisible,
                         onToggleVisibility = {
-                            if (!(state.isAssetVisible && state.isGoalVisible) && assetPasswordProtection) {
+                            if (!state.isGoalVisible && assetPasswordProtection) {
                                 pendingToggleAction = { viewModel.toggleGoalVisibility() }
                                 showAssetPasswordDialog = true
                             } else {
@@ -206,14 +218,14 @@ fun AchievementsScreen(
                     
                     GoalCard(
                         title = "预算管理 (${if (isMonthly) "月" else "周"})",
-                        description = "${if (isMonthly) "本月" else "本周"}总预算：${if (state.isAssetVisible && state.isBudgetVisible) "¥" + formatAmount(budget) else "****"}",
-                        currentInfo = "已支出：${if (state.isAssetVisible && state.isBudgetVisible) "¥" + formatAmount(spent) else "****"}",
-                        subInfo = "可去算算账查看明细",
+                        description = "${if (isMonthly) "本月" else "本周"}总预算：${if (state.isBudgetVisible) "¥" + formatAmount(budget) else "****"}",
+                        currentInfo = "已支出：${if (state.isBudgetVisible) "¥" + formatAmount(spent) else "****"}",
+                        subInfo = "可前往算算账查看明细",
                         progress = budgetProgress.coerceAtMost(1f),
                         progressColor = if (budgetProgress > 0.9f) Warning else MaterialTheme.colorScheme.primary,
-                        isVisible = state.isAssetVisible && state.isBudgetVisible,
+                        isVisible = state.isBudgetVisible,
                         onToggleVisibility = {
-                            if (!(state.isAssetVisible && state.isBudgetVisible) && assetPasswordProtection) {
+                            if (!state.isBudgetVisible && assetPasswordProtection) {
                                 pendingToggleAction = { viewModel.toggleBudgetVisibility() }
                                 showAssetPasswordDialog = true
                             } else {
@@ -224,7 +236,7 @@ fun AchievementsScreen(
                     )
                 }
 
-                // 4. 增长趋势预测卡片 (小眼睛改为小问号)
+                // 4. 增长趋势预测卡片
                 item {
                     TrendForecastCard(
                         points = state.trendPoints,
@@ -240,10 +252,10 @@ fun AchievementsScreen(
     if (showHelpDialog) {
         AlertDialog(
             onDismissRequest = { showHelpDialog = false },
-            title = { Text("成长说明") },
+            title = { Text("挑战说明") },
             text = {
                 Text(
-                    text = "本页面帮助你追踪长期财务目标和短期支出预算。\n\n• 点击资产卡片跳转管理详情\n• 点击目标卡片可重新设定金额和时间\n• 每个卡片可独立控制金额可见性",
+                    text = "本页面帮助你追踪长期资产目标和短期支出预算。\n\n• 点击顶部的资产卡片可跳转管理详情\n• 点击各目标卡片可重新设定金额和时间\n• 每个卡片可独立控制可见性，建议在公共场合关闭",
                     lineHeight = 22.sp
                 )
             },
@@ -256,10 +268,10 @@ fun AchievementsScreen(
     if (showTrendHelp) {
         AlertDialog(
             onDismissRequest = { showTrendHelp = false },
-            title = { Text("资产增长趋势说明") },
+            title = { Text("趋势说明") },
             text = {
                 Text(
-                    text = "该图表展示了你从设定目标之日起的资产增长情况：\n\n• 虚线：期望增长路径，代表达到目标所需的平均进度。\n• 实线：实际净资产轨迹，反映你真实的财富积累过程。\n• 若实线低于虚线，系统会提醒你偏离轨道，建议优化开支。",
+                    text = "图表展示了你从设定目标起的数据变化：\n\n• 虚线：期望路径，代表达成目标所需的平均进度。\n• 实线：实际轨迹，反映真实的积累过程。\n• 若实线低于虚线，系统会提醒你偏离轨道，建议优化开支。",
                     lineHeight = 22.sp
                 )
             },
@@ -393,13 +405,12 @@ fun TrendForecastCard(points: List<TrendPoint>, onShowHelp: () -> Unit) {
                     Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Warning, contentDescription = null, tint = Warning, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = "资产增长偏离期望轨道，请注意开支！", color = Warning, style = MaterialTheme.typography.bodySmall)
+                        Text(text = "进度落后于期望目标，加油！", color = Warning, style = MaterialTheme.typography.bodySmall)
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            // 折线图绘制 (带坐标轴)
             Box(modifier = Modifier.fillMaxWidth().height(200.dp).padding(start = 40.dp, bottom = 20.dp)) {
                 TrendLineChart(points = points, primaryColor = primaryColor)
             }
@@ -435,21 +446,16 @@ fun TrendLineChart(points: List<TrendPoint>, primaryColor: Color) {
         val height = size.height
         val spacing = width / (points.size - 1).coerceAtLeast(1)
 
-        // 1. 绘制纵轴刻度 (金额)
         val ySteps = 4
         for (i in 0..ySteps) {
             val y = height - (i.toFloat() / ySteps * height)
             val value = (i.toFloat() / ySteps * maxVal).toInt()
-            
-            // 绘制横向背景参考线
             drawLine(
                 color = Color.LightGray.copy(alpha = 0.3f),
                 start = Offset(0f, y),
                 end = Offset(width, y),
                 strokeWidth = 1.dp.toPx()
             )
-            
-            // 绘制刻度数值
             drawContext.canvas.nativeCanvas.drawText(
                 if (value >= 10000) "${value/1000}k" else "$value",
                 -35.dp.toPx(),
@@ -462,7 +468,6 @@ fun TrendLineChart(points: List<TrendPoint>, primaryColor: Color) {
             )
         }
 
-        // 2. 绘制横轴刻度 (日期)
         points.forEachIndexed { index, point ->
             val x = index * spacing
             drawContext.canvas.nativeCanvas.drawText(
@@ -477,7 +482,6 @@ fun TrendLineChart(points: List<TrendPoint>, primaryColor: Color) {
             )
         }
 
-        // 3. 绘制期望路径 (虚线)
         val expectedPath = Path()
         points.forEachIndexed { index, point ->
             val x = index * spacing
@@ -490,7 +494,6 @@ fun TrendLineChart(points: List<TrendPoint>, primaryColor: Color) {
             style = Stroke(width = 2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f))
         )
 
-        // 4. 绘制现状路径 (实线)
         val actualPath = Path()
         var firstActual = true
         points.forEachIndexed { index, point ->
@@ -576,7 +579,6 @@ fun GoalCard(
 
             Spacer(modifier = Modifier.height(10.dp))
             
-            // 金额进度
             LinearProgressIndicator(
                 progress = { progress },
                 modifier = Modifier
@@ -590,7 +592,7 @@ fun GoalCard(
             if (timeProgress != null) {
                 Spacer(modifier = Modifier.height(18.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = "剩余时间", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                    Text(text = "时间进度", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
                     Spacer(modifier = Modifier.width(8.dp))
                     LinearProgressIndicator(
                         progress = { timeProgress },
@@ -624,7 +626,7 @@ fun BudgetSettingSheet(
             .fillMaxWidth()
             .navigationBarsPadding()
     ) {
-        Text("预算管理设定", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text("设定预算目标", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
         
         TabRow(
@@ -650,7 +652,7 @@ fun BudgetSettingSheet(
         OutlinedTextField(
             value = if (selectedTab == 0) monthlyAmount else weeklyAmount,
             onValueChange = { if (selectedTab == 0) monthlyAmount = it else weeklyAmount = it },
-            label = { Text(if (selectedTab == 0) "本月预算总额" else "本周预算总额") },
+            label = { Text(if (selectedTab == 0) "本月支出上限" else "本周支出上限") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             modifier = Modifier.fillMaxWidth(),
             prefix = { Text("¥") }
@@ -666,7 +668,7 @@ fun BudgetSettingSheet(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Text("保存设定")
+            Text("确认保存")
         }
         Spacer(modifier = Modifier.height(16.dp))
     }
@@ -691,13 +693,13 @@ fun AssetGoalSettingSheet(
             .fillMaxWidth()
             .navigationBarsPadding()
     ) {
-        Text("资产目标设定", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text("设定资产目标", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(24.dp))
         
         OutlinedTextField(
             value = amount,
             onValueChange = { amount = it },
-            label = { Text("目标净资产金额") },
+            label = { Text("目标资产总额") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             modifier = Modifier.fillMaxWidth(),
             prefix = { Text("¥") }
@@ -716,7 +718,7 @@ fun AssetGoalSettingSheet(
                 Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
-                    Text("达成日期目标", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                    Text("期望达成日期", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
                     Text(
                         text = SimpleDateFormat("yyyy年MM月dd日", Locale.getDefault()).format(Date(datePickerState.selectedDateMillis ?: initialDate)),
                         style = MaterialTheme.typography.bodyLarge
@@ -737,7 +739,7 @@ fun AssetGoalSettingSheet(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp)
         ) {
-            Text("确认并开启挑战")
+            Text("开始挑战")
         }
         Spacer(modifier = Modifier.height(16.dp))
     }

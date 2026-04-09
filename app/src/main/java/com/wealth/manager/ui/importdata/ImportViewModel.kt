@@ -4,11 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.wealth.manager.data.dao.AssetDao
-import com.wealth.manager.data.dao.BudgetDao
-import com.wealth.manager.data.dao.CategoryDao
-import com.wealth.manager.data.dao.ExpenseDao
-import com.wealth.manager.data.dao.WeekStatsDao
+import com.wealth.manager.data.dao.*
 import com.wealth.manager.export.DataExporter
 import com.wealth.manager.export.DataImporter
 import com.wealth.manager.import.QianjiImporter
@@ -61,7 +57,10 @@ class ImportViewModel @Inject constructor(
     private val expenseDao: ExpenseDao,
     private val assetDao: AssetDao,
     private val budgetDao: BudgetDao,
-    private val weekStatsDao: WeekStatsDao
+    private val weekStatsDao: WeekStatsDao,
+    private val sessionDao: SessionDao,
+    private val messageDao: MessageDao,
+    private val memoryDao: MemoryDao
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<ImportUiState>(ImportUiState.Idle)
@@ -148,7 +147,10 @@ class ImportViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = ImportUiState.Exporting
             try {
-                val exporter = DataExporter(context, expenseDao, assetDao, categoryDao, budgetDao, weekStatsDao)
+                val exporter = DataExporter(
+                    context, expenseDao, assetDao, categoryDao, budgetDao, weekStatsDao,
+                    sessionDao, messageDao, memoryDao
+                )
                 val filePath = exporter.exportToDownloads()
                 if (filePath != null) {
                     _uiState.value = ImportUiState.ExportSuccess(filePath)
@@ -176,7 +178,10 @@ class ImportViewModel @Inject constructor(
                     return@launch
                 }
 
-                val importer = DataImporter(context, expenseDao, assetDao, categoryDao, budgetDao, weekStatsDao)
+                val importer = DataImporter(
+                    context, expenseDao, assetDao, categoryDao, budgetDao, weekStatsDao,
+                    sessionDao, messageDao, memoryDao
+                )
                 val count = importer.importAll(jsonContent)
                 if (count != null) {
                     _uiState.value = ImportUiState.Success(count)

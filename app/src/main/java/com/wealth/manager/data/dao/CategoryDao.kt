@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import com.wealth.manager.data.entity.CategoryEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -21,8 +22,11 @@ interface CategoryDao {
     @Query("SELECT * FROM categories WHERE name = :name LIMIT 1")
     suspend fun getCategoryByName(name: String): CategoryEntity?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertCategory(category: CategoryEntity): Long
+
+    @Update
+    suspend fun updateCategory(category: CategoryEntity)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCategories(categories: List<CategoryEntity>)

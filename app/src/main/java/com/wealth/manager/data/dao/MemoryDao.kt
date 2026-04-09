@@ -37,6 +37,9 @@ interface MemoryDao {
     
     @Query("DELETE FROM memory")
     suspend fun clearAllMemory()
+
+    @Query("DELETE FROM memory")
+    suspend fun deleteAllMemory()
     
     @Query("SELECT COUNT(*) FROM memory")
     suspend fun getMemoryCount(): Int

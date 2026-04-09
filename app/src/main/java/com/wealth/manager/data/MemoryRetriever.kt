@@ -4,6 +4,7 @@ import android.content.Context
 import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import com.wealth.manager.data.dao.MemoryDao
 import com.wealth.manager.util.LogCollector
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -12,12 +13,13 @@ import javax.inject.Singleton
 import kotlin.math.exp
 
 /**
- * 记忆检索器 - 支持 RRF 混合检索 + 时间衰减权重
+ * 记忆检索器 - 支持 RRF 混合检索 + 结构化记忆提取
  */
 @Singleton
 class MemoryRetriever @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val embeddingService: EmbeddingService // 注入 EmbeddingService 实例
+    private val embeddingService: EmbeddingService,
+    private val memoryDao: MemoryDao
 ) {
 
     private val dbHelper = FtsDatabaseHelper(context)
@@ -38,9 +40,33 @@ class MemoryRetriever @Inject constructor(
         ensureTableExists(db)
     }
 
+    /**
+     * 清空所有索引和向量（用于系统重置或重建）
+     */
+    fun clearAllIndex() {
+        try {
+            val db = dbHelper.writableDatabase
+            db.execSQL("DELETE FROM messages_fts")
+            db.execSQL("DELETE FROM message_vectors")
+            LogCollector.i(TAG, "已成功清空 FTS 索引和向量库")
+        } catch (e: Exception) {
+            LogCollector.e(TAG, "清空索引失败: ${e.message}")
+        }
+    }
+
     fun getDiagnosticInfo(): String {
         val count = getIndexCount()
         return "FTS模式: FTS4 (兼容模式) | 索引数: $count"
+    }
+
+    /**
+     * 获取结构化记忆的文本摘要，供 AI 上下文注入
+     */
+    suspend fun getStructuredMemorySummary(): String {
+        val memories = memoryDao.getAllMemoryOnce()
+        if (memories.isEmpty()) return ""
+        return "=== 用户核心画像与事实 ===\n" + 
+               memories.joinToString("\n") { "- [${it.key}] ${it.summary}" }
     }
 
     /**
@@ -163,7 +189,6 @@ class MemoryRetriever @Inject constructor(
     }
 
     suspend fun searchVectors(queryText: String, topK: Int = 5, sessionId: String? = null): List<SearchResult> {
-        // 使用注入的 embeddingService 实例
         val queryVector = embeddingService.embed(queryText) ?: return emptyList()
         val db = dbHelper.readableDatabase
         val candidates = mutableListOf<Pair<String, Float>>()
@@ -200,7 +225,6 @@ class MemoryRetriever @Inject constructor(
     }
 
     suspend fun indexMessageVector(messageId: String, content: String): Boolean {
-        // 使用注入的 embeddingService 实例
         val vector = embeddingService.embed(content) ?: return false
         try {
             val db = dbHelper.writableDatabase

@@ -3,65 +3,15 @@ package com.wealth.manager.ui.navigation
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.AccountBalanceWallet
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Insights
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.NewReleases
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.outlined.Lightbulb
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Insights
-import androidx.compose.material.icons.outlined.Star
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberDrawerState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -74,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -136,11 +87,25 @@ data class DrawerMenuItem(
     val route: String
 )
 
-val drawerMenuItems = listOf(
-    DrawerMenuItem("资产管理", Icons.Default.AccountBalanceWallet, Screen.AssetManage.route),
-    DrawerMenuItem("分类管理", Icons.Default.List, Screen.CategoryManage.route),
-    DrawerMenuItem("导入数据", Icons.Default.Download, Screen.Import.route),
-    DrawerMenuItem("版本信息", Icons.Default.NewReleases, Screen.VersionInfo.route)
+data class DrawerMenuGroup(
+    val title: String,
+    val items: List<DrawerMenuItem>
+)
+
+val drawerMenuGroups = listOf(
+    DrawerMenuGroup(
+        title = "账本管理",
+        items = listOf(
+            DrawerMenuItem("资产管理", Icons.Default.AccountBalanceWallet, Screen.AssetManage.route),
+            DrawerMenuItem("分类管理", Icons.Default.List, Screen.CategoryManage.route)
+        )
+    ),
+    DrawerMenuGroup(
+        title = "数据工具",
+        items = listOf(
+            DrawerMenuItem("导入数据", Icons.Default.Download, Screen.Import.route)
+        )
+    )
 )
 
 @Composable
@@ -149,17 +114,15 @@ fun AppNavigation() {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
     val themeViewModel: ThemeViewModel = hiltViewModel()
-    val assetPasswordProtection by themeViewModel.assetPasswordProtection.collectAsState()
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
-    // 密码验证弹窗状态
+    // 资产保护密码弹窗逻辑
     var showAssetPasswordDialog by remember { mutableStateOf(false) }
     var pendingAssetRoute by remember { mutableStateOf<String?>(null) }
     var passwordInput by remember { mutableStateOf("") }
     var passwordError by remember { mutableStateOf<String?>(null) }
 
-    // 密码验证弹窗
     if (showAssetPasswordDialog) {
         AlertDialog(
             onDismissRequest = {
@@ -227,6 +190,7 @@ fun AppNavigation() {
             }
         )
     }
+
     val scope = rememberCoroutineScope()
 
     fun isRouteSelected(route: String): Boolean {
@@ -245,18 +209,19 @@ fun AppNavigation() {
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
                 ) {
+                    // Drawer Header
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(MaterialTheme.colorScheme.primary)
-                            .padding(horizontal = 20.dp, vertical = 16.dp)
+                            .padding(horizontal = 20.dp, vertical = 24.dp)
                     ) {
                         Image(
                             painter = painterResource(id = R.drawable.ic_logo),
                             contentDescription = "App Logo",
                             modifier = Modifier
                                 .size(48.dp)
-                                .padding(bottom = 8.dp)
+                                .padding(bottom = 12.dp)
                         )
                         Text(
                             text = "知其财，治其财",
@@ -266,46 +231,61 @@ fun AppNavigation() {
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                    drawerMenuItems.forEach { item ->
-                        // 修改：取消侧边栏对资产管理的强拦截，改为直接进入
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    scope.launch { drawerState.close() }
-                                    navController.navigate(item.route) {
-                                        launchSingleTop = true
+                    drawerMenuGroups.forEachIndexed { index, group ->
+                        Text(
+                            text = group.title,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextSecondary,
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+                        )
+
+                        group.items.forEach { item ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        scope.launch { drawerState.close() }
+                                        navController.navigate(item.route) {
+                                            popUpTo(navController.graph.findStartDestination().id) {
+                                                saveState = true
+                                            }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
                                     }
-                                }
-                                .background(
-                                    if (isRouteSelected(item.route)) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                                    else Surface
+                                    .background(
+                                        if (isRouteSelected(item.route)) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                                        else Surface
+                                    )
+                                    .padding(horizontal = 20.dp, vertical = 14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = item.icon,
+                                    contentDescription = item.label,
+                                    tint = if (isRouteSelected(item.route)) MaterialTheme.colorScheme.primary else TextSecondary,
+                                    modifier = Modifier.size(22.dp)
                                 )
-                                .padding(horizontal = 20.dp, vertical = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = item.icon,
-                                contentDescription = item.label,
-                                tint = if (isRouteSelected(item.route)) MaterialTheme.colorScheme.primary else TextSecondary,
-                                modifier = Modifier.size(22.dp)
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Text(
-                                text = item.label,
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = if (isRouteSelected(item.route)) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                                fontWeight = if (isRouteSelected(item.route)) FontWeight.Medium else FontWeight.Normal
-                            )
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Text(
+                                    text = item.label,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = if (isRouteSelected(item.route)) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = if (isRouteSelected(item.route)) FontWeight.Medium else FontWeight.Normal
+                                )
+                            }
+                        }
+                        
+                        if (index < drawerMenuGroups.size - 1) {
+                            Spacer(modifier = Modifier.height(12.dp))
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.weight(1f))
                     HorizontalDivider(color = Background)
-                    Spacer(modifier = Modifier.height(12.dp))
-
+                    
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -319,7 +299,7 @@ fun AppNavigation() {
                                 if (isRouteSelected(Screen.Settings.route)) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                                 else Surface
                             )
-                            .padding(horizontal = 20.dp, vertical = 14.dp),
+                            .padding(horizontal = 20.dp, vertical = 16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
@@ -342,7 +322,7 @@ fun AppNavigation() {
     ) {
         Scaffold(
             bottomBar = {
-                androidx.compose.foundation.layout.Box(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(Background)
@@ -361,7 +341,11 @@ fun AppNavigation() {
                                     .weight(1f)
                                     .clickable {
                                         navController.navigate(item.route) {
+                                            popUpTo(navController.graph.findStartDestination().id) {
+                                                saveState = true
+                                            }
                                             launchSingleTop = true
+                                            restoreState = true
                                         }
                                     }
                                     .padding(top = 4.dp, bottom = 10.dp),
@@ -418,32 +402,16 @@ fun AppNavigation() {
                 composable(Screen.Add.route) {
                     AddExpenseScreen(
                         expenseToEdit = null,
-                        onNavigateToDashboard = {
-                            navController.navigate(Screen.Dashboard.route) {
-                                popUpTo(Screen.Add.route) { inclusive = true }
-                            }
-                        },
-                        onNavigateBack = {
-                            navController.navigate(Screen.Dashboard.route) {
-                                popUpTo(Screen.Add.route) { inclusive = true }
-                            }
-                        }
+                        onNavigateToDashboard = { navController.popBackStack() },
+                        onNavigateBack = { navController.popBackStack() }
                     )
                 }
                 composable(Screen.AddWithId.route) { backStackEntry ->
                     val expenseId = backStackEntry.arguments?.getString("expenseId")?.toLongOrNull()
                     AddExpenseScreen(
                         expenseToEdit = expenseId,
-                        onNavigateToDashboard = {
-                            navController.navigate(Screen.Dashboard.route) {
-                                popUpTo(Screen.AddWithId.route) { inclusive = true }
-                            }
-                        },
-                        onNavigateBack = {
-                            navController.navigate(Screen.Dashboard.route) {
-                                popUpTo(Screen.AddWithId.route) { inclusive = true }
-                            }
-                        }
+                        onNavigateToDashboard = { navController.popBackStack() },
+                        onNavigateBack = { navController.popBackStack() }
                     )
                 }
                 composable(Screen.Achievements.route) {
@@ -453,10 +421,14 @@ fun AppNavigation() {
                     )
                 }
                 composable(Screen.CategoryManage.route) {
-                    CategoryManageScreen()
+                    CategoryManageScreen(
+                        onNavigateBack = { navController.popBackStack() }
+                    )
                 }
                 composable(Screen.Import.route) {
-                    ImportScreen()
+                    ImportScreen(
+                        onNavigateBack = { navController.popBackStack() }
+                    )
                 }
                 composable(Screen.AssetManage.route) {
                     AssetManageScreen(

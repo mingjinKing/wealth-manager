@@ -46,6 +46,8 @@ fun SettingsScreen(
 ) {
     val currentThemeColor by viewModel.currentThemeColor.collectAsState()
     val assetPasswordProtection by viewModel.assetPasswordProtection.collectAsState()
+    val showAssetSelection by viewModel.showAssetSelection.collectAsState()
+    val refundOnDeletion by viewModel.refundOnDeletion.collectAsState()
 
     // 密码设置弹窗状态
     var showPasswordSetDialog by remember { mutableStateOf(false) }
@@ -245,7 +247,7 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
-            // 主题色选择
+            // 1. 个性化
             Text(
                 text = "主题颜色",
                 style = MaterialTheme.typography.titleMedium,
@@ -281,7 +283,6 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 背景图设置
             Text(
                 text = "界面定制",
                 style = MaterialTheme.typography.titleMedium,
@@ -318,11 +319,11 @@ fun SettingsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { launcher.launch(arrayOf("image/*")) }
-                        .padding(vertical = 8.dp),
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.padding(start = 16.dp)) {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "首页背景图",
                             style = MaterialTheme.typography.bodyLarge,
@@ -346,8 +347,9 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // 2. 记账设置
             Text(
-                text = "隐私保护",
+                text = "记账设置",
                 style = MaterialTheme.typography.titleMedium,
                 color = TextSecondary,
                 modifier = Modifier.padding(bottom = 12.dp)
@@ -359,7 +361,6 @@ fun SettingsScreen(
                 colors = CardDefaults.cardColors(containerColor = Surface)
             ) {
                 Column {
-                    // 资产管理密码保护开关
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -369,28 +370,19 @@ fun SettingsScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "资产管理密码保护",
+                                text = "关联账户",
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
-                                text = if (assetPasswordProtection) "访问资产管理需输入密码" else "关闭密码保护",
+                                text = "记账时选择资金从哪个账户支出",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = TextSecondary
                             )
                         }
                         Switch(
-                            checked = assetPasswordProtection,
-                            onCheckedChange = { enabled ->
-                                if (enabled && !viewModel.hasAssetPassword()) {
-                                    // 还没有设置密码，先弹窗设置
-                                    showPasswordSetDialog = true
-                                } else if (enabled && viewModel.hasAssetPassword()) {
-                                    viewModel.setAssetPasswordProtection(true)
-                                } else {
-                                    viewModel.setAssetPasswordProtection(false)
-                                }
-                            },
+                            checked = showAssetSelection,
+                            onCheckedChange = { viewModel.setShowAssetSelection(it) },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = MaterialTheme.colorScheme.primary,
                                 checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
@@ -398,29 +390,34 @@ fun SettingsScreen(
                         )
                     }
 
-                    // 如果已经启用，显示"修改密码"按钮
-                    if (assetPasswordProtection && viewModel.hasAssetPassword()) {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            color = Background
-                        )
+                    if (showAssetSelection) {
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = Background)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { showPasswordChangeDialog = true }
                                 .padding(16.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "修改密码",
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Icon(
-                                imageVector = Icons.Default.ChevronRight,
-                                contentDescription = null,
-                                tint = TextSecondary
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "删除账单时退还余额",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    text = "删除分类或账单时，将金额退回到原账户",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = TextSecondary
+                                )
+                            }
+                            Switch(
+                                checked = refundOnDeletion,
+                                onCheckedChange = { viewModel.setRefundOnDeletion(it) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                                )
                             )
                         }
                     }
@@ -429,8 +426,9 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // 3. AI 记忆
             Text(
-                text = "AI 记忆",
+                text = "智能助理",
                 style = MaterialTheme.typography.titleMedium,
                 color = TextSecondary,
                 modifier = Modifier.padding(bottom = 12.dp)
@@ -471,8 +469,87 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // 4. 隐私保护
             Text(
-                text = "记账设置",
+                text = "隐私保护",
+                style = MaterialTheme.typography.titleMedium,
+                color = TextSecondary,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Surface)
+            ) {
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "资产管理密码保护",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = if (assetPasswordProtection) "访问资产管理需输入密码" else "关闭密码保护",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextSecondary
+                            )
+                        }
+                        Switch(
+                            checked = assetPasswordProtection,
+                            onCheckedChange = { enabled ->
+                                if (enabled && !viewModel.hasAssetPassword()) {
+                                    showPasswordSetDialog = true
+                                } else if (enabled && viewModel.hasAssetPassword()) {
+                                    viewModel.setAssetPasswordProtection(true)
+                                } else {
+                                    viewModel.setAssetPasswordProtection(false)
+                                }
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                            )
+                        )
+                    }
+
+                    if (assetPasswordProtection && viewModel.hasAssetPassword()) {
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = Background)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showPasswordChangeDialog = true }
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "修改密码",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Icon(
+                                imageVector = Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                tint = TextSecondary
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // 5. 关于
+            Text(
+                text = "关于",
                 style = MaterialTheme.typography.titleMedium,
                 color = TextSecondary,
                 modifier = Modifier.padding(bottom = 12.dp)
@@ -486,29 +563,27 @@ fun SettingsScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .clickable { navController?.navigate(Screen.VersionInfo.route) }
                         .padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "关联账户",
+                            text = "版本信息",
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.Medium
                         )
                         Text(
-                            text = "记账时选择资金从哪个账户支出",
+                            text = "当前版本 v${BuildConfig.VERSION_NAME}",
                             style = MaterialTheme.typography.bodySmall,
                             color = TextSecondary
                         )
                     }
-                    Switch(
-                        checked = viewModel.showAssetSelection.collectAsState().value,
-                        onCheckedChange = { viewModel.setShowAssetSelection(it) },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = MaterialTheme.colorScheme.primary,
-                            checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                        )
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = TextSecondary
                     )
                 }
             }

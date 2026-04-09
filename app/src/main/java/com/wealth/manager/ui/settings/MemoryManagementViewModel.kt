@@ -1,30 +1,22 @@
 package com.wealth.manager.ui.settings
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.wealth.manager.data.MemoryExtractor
 import com.wealth.manager.data.MemoryRebuilder
 import com.wealth.manager.data.dao.MemoryDao
-import com.wealth.manager.data.dao.ExtractedFactDao
-import com.wealth.manager.data.dao.MessageDao
-import com.wealth.manager.data.dao.SessionDao
-import com.wealth.manager.data.entity.MessageEntity
-import com.wealth.manager.data.entity.SessionEntity
-import com.wealth.manager.data.FactExtractor
-import com.wealth.manager.data.MemoryRefiner
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
-import java.io.File
 import javax.inject.Inject
 
 data class MemoryItem(
     val id: String,
     val key: String,
+    val displayKey: String, // 中文显示名
     val summary: String,
     val source: String,
     val confidence: Float,
@@ -41,13 +33,8 @@ data class MemoryManagementState(
 @HiltViewModel
 class MemoryManagementViewModel @Inject constructor(
     private val memoryDao: MemoryDao,
-    private val extractedFactDao: ExtractedFactDao,
-    private val messageDao: MessageDao,
-    private val sessionDao: SessionDao,
-    private val factExtractor: FactExtractor,
-    private val memoryRefiner: MemoryRefiner,
     private val memoryRebuilder: MemoryRebuilder,
-    @ApplicationContext private val context: Context
+    private val memoryExtractor: MemoryExtractor // 注入以获取字典
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(MemoryManagementState())
@@ -60,18 +47,25 @@ class MemoryManagementViewModel @Inject constructor(
     private fun observeDatabase() {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true) }
-            combine(
-                memoryDao.getAllMemory(),
-                extractedFactDao.getAllFacts()
-            ) { shortTerm, longTerm ->
-                val shortItems = shortTerm.map { entity ->
-                    MemoryItem(entity.id, entity.key, entity.summary, entity.source, entity.confidence, entity.updatedAt, false)
-                }
-                val longItems = longTerm.map { entity ->
-                    MemoryItem(entity.id, entity.key, entity.summary, "extracted_fact", 1.0f, entity.updatedAt, true)
-                }
-                (shortItems + longItems).sortedByDescending { it.updatedAt }
-            }.collect { items ->
+            memoryDao.getAllMemory().collect { memories ->
+                val items = memories.map { entity ->
+                    val isLongTerm = try {
+                        JSONObject(entity.value).optBoolean("is_long_term", false)
+                    } catch (e: Exception) {
+                        false
+                    }
+                    
+                    MemoryItem(
+                        id = entity.id,
+                        key = entity.key,
+                        displayKey = memoryExtractor.keyDictionary[entity.key] ?: entity.key,
+                        summary = entity.summary,
+                        source = entity.source,
+                        confidence = entity.confidence,
+                        updatedAt = entity.updatedAt,
+                        isLongTerm = isLongTerm
+                    )
+                }.sortedByDescending { it.updatedAt }
                 _state.update { it.copy(memories = items, isLoading = false) }
             }
         }
@@ -84,7 +78,7 @@ class MemoryManagementViewModel @Inject constructor(
                 val result = withContext(Dispatchers.IO) {
                     memoryRebuilder.rebuild()
                 }
-                val msg = "重建完成：处理${result.sessionsProcessed}个会话，获得${result.memoryCount}条画像 + ${result.factCount}条事实"
+                val msg = "重建完成：扫描${result.sessionsProcessed}个历史会话，沉淀${result.memoryCount}条核心记忆"
                 _state.update { it.copy(snackbarMessage = msg) }
             } catch (e: Exception) {
                 android.util.Log.e("MemoryVM", "Rebuild failed", e)
@@ -97,15 +91,13 @@ class MemoryManagementViewModel @Inject constructor(
 
     fun deleteMemory(item: MemoryItem) {
         viewModelScope.launch {
-            if (item.isLongTerm) extractedFactDao.deleteFact(item.id)
-            else memoryDao.deleteMemory(item.id)
+            memoryDao.deleteMemory(item.id)
         }
     }
 
     fun clearAllMemories() {
         viewModelScope.launch {
             memoryDao.clearAllMemory()
-            extractedFactDao.clearAll()
         }
     }
 

@@ -1,8 +1,10 @@
 package com.wealth.manager.ui.dashboard
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.wealth.manager.agent.WangcaiAgent
 import com.wealth.manager.data.dao.AssetDao
 import com.wealth.manager.data.dao.CategoryDao
 import com.wealth.manager.data.dao.ExpenseDao
@@ -21,7 +23,7 @@ import java.util.Calendar
 import java.util.Locale
 import javax.inject.Inject
 
-private const val PAGE_SIZE = 30  // 每次加载约5-6天记录
+private const val PAGE_SIZE = 30 
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
@@ -29,11 +31,14 @@ class DashboardViewModel @Inject constructor(
     private val categoryDao: CategoryDao,
     private val weekStatsDao: WeekStatsDao,
     private val assetDao: AssetDao,
+    private val wangcaiAgent: WangcaiAgent,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
+    private val TAG = "DashboardVM"
     private val prefs = context.getSharedPreferences("dashboard_prefs", Context.MODE_PRIVATE)
 
+    // 注意：DashboardState 已在独立文件中定义，此处不再声明，防止 Redeclaration 错误
     private val _state = MutableStateFlow(DashboardState(
         customBackgroundImageUri = prefs.getString("custom_bg_uri", null)
     ))
@@ -46,12 +51,56 @@ class DashboardViewModel @Inject constructor(
         loadDashboardData()
     }
 
+    fun generateRealtimeInsight() {
+        if (_state.value.isAnalyzingInsight) return
+        
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isAnalyzingInsight = true, aiInsightText = null)
+            
+            try {
+                val (monthStart, monthEnd) = getCurrentMonthRange()
+                val monthExpenses = expenseDao.getExpensesByDateRange(monthStart, monthEnd).first()
+                val categories = categoryDao.getAllCategories().first()
+                val incomeCategoryIds = categories.filter { it.type == "INCOME" }.map { it.id }.toSet()
+                
+                val expenses = monthExpenses.filter { it.categoryId !in incomeCategoryIds }
+                val total = expenses.sumOf { it.amount }
+                val top3 = expenses.groupBy { it.categoryId }
+                    .map { entry -> 
+                        val cat = categories.find { it.id == entry.key }
+                        (cat?.name ?: "其他") to entry.value.sumOf { it.amount }
+                    }
+                    .sortedByDescending { it.second }
+                    .take(3)
+
+                val dataSnapshot = """
+                    本月支出: ¥$total
+                    消费前三: ${top3.joinToString { "${it.first}(¥${it.second})" }}
+                    账单总数: ${monthExpenses.size}
+                """.trimIndent()
+
+                val prompt = "请根据以下本月财务数据快照，给出一条简短、专业且有温度的理财建议（50字以内称述句，直接给建议，不要寒暄）：\n$dataSnapshot"
+                
+                var result = ""
+                wangcaiAgent.thinkStream(userMessage = prompt).collect { delta ->
+                    if (!delta.startsWith("[PROGRESS")) {
+                        result += delta
+                        _state.value = _state.value.copy(aiInsightText = result)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Insight generation failed", e)
+                _state.value = _state.value.copy(aiInsightText = "旺财思考时出了点小状况，稍后再试试吧。")
+            } finally {
+                _state.value = _state.value.copy(isAnalyzingInsight = false)
+            }
+        }
+    }
+
     fun deleteExpense(id: Long) {
         viewModelScope.launch {
-            // 先查询账单信息，用于恢复账户余额
             val expense = expenseDao.getExpenseById(id)
             expense?.let {
-                // 如果有关联账户，恢复余额
                 if (it.assetId != null && it.amount > 0) {
                     val asset = assetDao.getAssetById(it.assetId!!)
                     asset?.let { a ->
@@ -59,9 +108,8 @@ class DashboardViewModel @Inject constructor(
                     }
                 }
             }
-            // 删除账单
             expenseDao.deleteExpenseById(id)
-            loadDashboardData(showLoading = false) // Refresh after delete
+            loadDashboardData(showLoading = false)
         }
     }
 
@@ -78,15 +126,11 @@ class DashboardViewModel @Inject constructor(
             
             val (monthStart, monthEnd) = getCurrentMonthRange()
             val (sevenDaysStart, sevenDaysEnd) = getLast7DaysRange()
-            
-            // 限制在当月内：取当月开始时间和 7 天前开始时间的较晚者
             val recent7DaysStart = maxOf(monthStart, sevenDaysStart)
 
-            // 并行加载所有数据（Flow → List）
             val categoriesDeferred = async { categoryDao.getAllCategories().first() }
             val weekStatsDeferred = async { weekStatsDao.getRecentWeekStats(4).first() }
             val monthExpensesDeferred = async { expenseDao.getExpensesByDateRange(monthStart, monthEnd).first() }
-            val recent7DaysDeferred = async { expenseDao.getExpensesByDateRange(recent7DaysStart, sevenDaysEnd).first() }
 
             val firstPage = expenseDao.getExpensesPaginated(Long.MAX_VALUE, PAGE_SIZE)
             allExpensesPage = firstPage.toMutableList()
@@ -95,31 +139,28 @@ class DashboardViewModel @Inject constructor(
             val categories = categoriesDeferred.await()
             val recentStats = weekStatsDeferred.await()
             val monthExpenses = monthExpensesDeferred.await()
-            val recent7DaysExpenses = recent7DaysDeferred.await()
 
-            // 区分收入和支出：使用 CategoryEntity 的 type 字段
             val incomeCategoryIds = categories.filter { it.type == "INCOME" }.map { it.id }.toSet()
-            
             val monthIncome = monthExpenses.filter { it.categoryId in incomeCategoryIds }.sumOf { it.amount }
             val monthTotalExpense = monthExpenses.filter { it.categoryId !in incomeCategoryIds }.sumOf { it.amount }
             
-            val recent7DaysTotalExpense = recent7DaysExpenses.filter { it.categoryId !in incomeCategoryIds }.sumOf { it.amount }
+            val recent7DaysTotalExpense = monthExpenses.filter { 
+                it.categoryId !in incomeCategoryIds && it.date >= recent7DaysStart 
+            }.sumOf { it.amount }
 
             val dailyExpenses = groupExpensesByDay(allExpensesPage, categories)
 
-            // 激励层逻辑
             val avgLast4Weeks = recentStats.take(4).map { it.totalAmount }.average()
-                .takeIf { !it.isNaN() } ?: recent7DaysTotalExpense
+                .takeIf { !it.isNaN() } ?: (monthTotalExpense / 4.0).coerceAtLeast(recent7DaysTotalExpense)
             val savedAmount = avgLast4Weeks - recent7DaysTotalExpense
 
-            // 按 SPEC 公式触发哇时刻：
-            // wow_triggered = savedAmount > ¥100 AND savedAmount > last_4_week_avg × 20%
             val isTriggered = savedAmount > 100 && savedAmount > avgLast4Weeks * 0.2
             val wowPreview = if (isTriggered) {
                 WowPreview(
                     savedAmount = savedAmount,
+                    lastWeekAmount = avgLast4Weeks,
                     isTriggered = true,
-                    reason = "本周消费控制极佳！"
+                    reason = "你的省钱意志力太强了！"
                 )
             } else null
 
@@ -143,23 +184,16 @@ class DashboardViewModel @Inject constructor(
 
         viewModelScope.launch {
             _state.value = currentState.copy(isLoadingMore = true)
-
-            val categories = _state.value.categories.ifEmpty {
-                categoryDao.getAllCategories().first()
-            }
-
+            val categories = _state.value.categories.ifEmpty { categoryDao.getAllCategories().first() }
             val nextPage = expenseDao.getExpensesPaginated(lastLoadedDate, PAGE_SIZE)
+            
             if (nextPage.isEmpty()) {
-                _state.value = _state.value.copy(
-                    isLoadingMore = false,
-                    hasMorePages = false
-                )
+                _state.value = _state.value.copy(isLoadingMore = false, hasMorePages = false)
                 return@launch
             }
 
             allExpensesPage.addAll(nextPage)
             lastLoadedDate = nextPage.last().date
-
             val dailyExpenses = groupExpensesByDay(allExpensesPage, categories)
 
             _state.value = _state.value.copy(
@@ -203,7 +237,6 @@ class DashboardViewModel @Inject constructor(
                     if (cat != null) ExpenseItem(expense = expense, category = cat) else null
                 }
                 
-                // 计算该日的支出总计（不含收入）
                 val dayTotalExpense = expenseItems
                     .filter { it.category.type == "EXPENSE" }
                     .sumOf { it.expense.amount }
@@ -235,32 +268,18 @@ class DashboardViewModel @Inject constructor(
         cal.set(Calendar.SECOND, 0)
         cal.set(Calendar.MILLISECOND, 0)
         val monthStart = cal.timeInMillis
-        
         cal.set(Calendar.DAY_OF_MONTH, cal.getActualMaximum(Calendar.DAY_OF_MONTH))
         cal.set(Calendar.HOUR_OF_DAY, 23)
         cal.set(Calendar.MINUTE, 59)
         cal.set(Calendar.SECOND, 59)
-        cal.set(Calendar.MILLISECOND, 999)
-        val monthEnd = cal.timeInMillis
-        
-        return Pair(monthStart, monthEnd)
+        return Pair(monthStart, cal.timeInMillis)
     }
 
     private fun getLast7DaysRange(): Pair<Long, Long> {
         val cal = Calendar.getInstance()
         cal.set(Calendar.HOUR_OF_DAY, 0)
-        cal.set(Calendar.MINUTE, 0)
-        cal.set(Calendar.SECOND, 0)
-        cal.set(Calendar.MILLISECOND, 0)
         cal.add(Calendar.DAY_OF_YEAR, -6)
-        val sevenDaysStart = cal.timeInMillis
-
-        cal.add(Calendar.DAY_OF_YEAR, 6)
-        cal.set(Calendar.HOUR_OF_DAY, 23)
-        cal.set(Calendar.MINUTE, 59)
-        cal.set(Calendar.SECOND, 59)
-        val sevenDaysEnd = cal.timeInMillis
-
-        return Pair(sevenDaysStart, sevenDaysEnd)
+        val start = cal.timeInMillis
+        return Pair(start, System.currentTimeMillis())
     }
 }

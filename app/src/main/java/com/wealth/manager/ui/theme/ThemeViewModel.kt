@@ -26,18 +26,18 @@ class ThemeViewModel @Inject constructor(
     private val _showAssetSelection = MutableStateFlow(loadShowAssetSelection())
     val showAssetSelection: StateFlow<Boolean> = _showAssetSelection.asStateFlow()
 
+    private val _refundOnDeletion = MutableStateFlow(loadRefundOnDeletion())
+    val refundOnDeletion: StateFlow<Boolean> = _refundOnDeletion.asStateFlow()
+
     private val _assetPasswordProtection = MutableStateFlow(loadAssetPasswordProtection())
     val assetPasswordProtection: StateFlow<Boolean> = _assetPasswordProtection.asStateFlow()
 
     private val preferenceChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { sharedPrefs, key ->
-        if (key == "primary_color") {
-            _currentThemeColor.value = loadThemeColor()
-        }
-        if (key == "show_asset_selection") {
-            _showAssetSelection.value = loadShowAssetSelection()
-        }
-        if (key == "asset_password_protection") {
-            _assetPasswordProtection.value = loadAssetPasswordProtection()
+        when (key) {
+            "primary_color" -> _currentThemeColor.value = loadThemeColor()
+            "show_asset_selection" -> _showAssetSelection.value = loadShowAssetSelection()
+            "refund_on_deletion" -> _refundOnDeletion.value = loadRefundOnDeletion()
+            "asset_password_protection" -> _assetPasswordProtection.value = loadAssetPasswordProtection()
         }
     }
 
@@ -54,6 +54,10 @@ class ThemeViewModel @Inject constructor(
         return prefs.getBoolean("show_asset_selection", false)
     }
 
+    private fun loadRefundOnDeletion(): Boolean {
+        return prefs.getBoolean("refund_on_deletion", true)
+    }
+
     private fun loadAssetPasswordProtection(): Boolean {
         return prefs.getBoolean("asset_password_protection", false)
     }
@@ -61,6 +65,11 @@ class ThemeViewModel @Inject constructor(
     fun setShowAssetSelection(show: Boolean) {
         prefs.edit().putBoolean("show_asset_selection", show).apply()
         _showAssetSelection.value = show
+    }
+
+    fun setRefundOnDeletion(refund: Boolean) {
+        prefs.edit().putBoolean("refund_on_deletion", refund).apply()
+        _refundOnDeletion.value = refund
     }
 
     fun setThemeColor(color: Color) {
