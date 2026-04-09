@@ -95,7 +95,7 @@ fun InsightsScreen(
                         }
                     }
                     IconButton(onClick = { showDateRangePicker = true }) {
-                        Icon(imageVector = Icons.Default.DateRange, contentDescription = "筛选日期", tint = Color.Black)
+                        Icon(imageVector = Icons.Default.DateRange, contentDescription = "筛选日期", tint = MaterialTheme.colorScheme.onSurface)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -194,7 +194,7 @@ fun InsightsScreen(
                         }
                     }
                     showDateRangePicker = false
-                }) { Text("确定", color = Color.Black) }
+                }) { Text("确定", color = MaterialTheme.colorScheme.onSurface) }
             }
         ) { DateRangePicker(state = dateRangePickerState, modifier = Modifier.height(480.dp), showModeToggle = false) }
     }
@@ -517,7 +517,7 @@ private fun renderMarkdown(text: String): AnnotatedString = buildAnnotatedString
         val trimmed = line.trim()
         when {
             trimmed.startsWith("## ") -> {
-                withStyle(SpanStyle(fontWeight = FontWeight.Bold, fontSize = 19.sp, color = Color.Black)) { append(trimmed.substring(3) + "\n") }
+                withStyle(SpanStyle(fontWeight = FontWeight.Bold, fontSize = 19.sp, color = Color.Unspecified)) { append(trimmed.substring(3) + "\n") }
             }
             trimmed.startsWith("### ") -> {
                 withStyle(SpanStyle(fontWeight = FontWeight.Bold, fontSize = 17.sp)) { append(trimmed.substring(4) + "\n") }
@@ -547,7 +547,7 @@ private fun parseInlineStyles(line: String): AnnotatedString = buildAnnotatedStr
     var last = 0
     boldRegex.findAll(line).forEach { m ->
         append(line.substring(last, m.range.first))
-        withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Color.Black)) { append(m.groupValues[1]) }
+        withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Color.Unspecified)) { append(m.groupValues[1]) }
         last = m.range.last + 1
     }
     append(line.substring(last))
