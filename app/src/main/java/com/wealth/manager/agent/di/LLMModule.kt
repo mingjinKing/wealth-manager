@@ -5,6 +5,8 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.wealth.manager.BuildConfig
 import com.wealth.manager.agent.LLMClient
+import com.wealth.manager.config.AppConfig
+import com.wealth.manager.config.NetworkConfig
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -23,27 +25,28 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object LLMModule {
 
-    private const val BASE_URL = "https://ark.cn-beijing.volces.com/api/coding/v3"
-    private const val MODEL = "deepseek-v3.2"
-
     private const val SECURE_PREFS_NAME = "secure_llm_prefs"
     private const val KEY_API_KEY = "llm_api_key"
 
     @Provides
     @Singleton
     fun provideOkHttpClient(): OkHttpClient {
-        // 优化并发：增加最大请求数，共享连接池
+        // 使用 NetworkConfig 中的统一配置
         val dispatcher = Dispatcher().apply {
-            maxRequests = 64
-            maxRequestsPerHost = 16
+            maxRequests = NetworkConfig.DISPATCHER_MAX_REQUESTS
+            maxRequestsPerHost = NetworkConfig.DISPATCHER_MAX_REQUESTS_PER_HOST
         }
-        
+
         return OkHttpClient.Builder()
             .dispatcher(dispatcher)
-            .connectionPool(ConnectionPool(10, 5, TimeUnit.MINUTES))
-            .connectTimeout(20, TimeUnit.SECONDS)
-            .readTimeout(120, TimeUnit.SECONDS)
-            .writeTimeout(20, TimeUnit.SECONDS)
+            .connectionPool(ConnectionPool(
+                NetworkConfig.POOL_MAX_IDLE,
+                NetworkConfig.POOL_KEEP_ALIVE_MINUTES,
+                TimeUnit.MINUTES
+            ))
+            .connectTimeout(NetworkConfig.LLM_CONNECT_TIMEOUT, TimeUnit.SECONDS)
+            .readTimeout(NetworkConfig.LLM_READ_TIMEOUT, TimeUnit.SECONDS)
+            .writeTimeout(NetworkConfig.LLM_WRITE_TIMEOUT, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
             .build()
     }
@@ -52,13 +55,13 @@ object LLMModule {
     @Singleton
     fun provideLLMClient(
         @ApplicationContext context: Context,
-        okHttpClient: OkHttpClient // 注入全局单例
+        okHttpClient: OkHttpClient
     ): LLMClient {
         val apiKey = getApiKey(context)
         return LLMClient(
             apiKey = apiKey,
-            baseUrl = BASE_URL,
-            model = MODEL,
+            baseUrl = AppConfig.LLM_BASE_URL,
+            model = AppConfig.LLM_DEFAULT_MODEL,
             okHttpClient = okHttpClient
         )
     }
@@ -70,7 +73,11 @@ object LLMModule {
         }
         return try {
             val masterKey = MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
-            val securePrefs = EncryptedSharedPreferences.create(context, SECURE_PREFS_NAME, masterKey, EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV, EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM)
+            val securePrefs = EncryptedSharedPreferences.create(
+                context, SECURE_PREFS_NAME, masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
             securePrefs.getString(KEY_API_KEY, "") ?: ""
         } catch (e: Exception) { "" }
     }

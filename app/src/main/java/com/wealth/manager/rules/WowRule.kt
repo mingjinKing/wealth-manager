@@ -1,17 +1,20 @@
 package com.wealth.manager.rules
 
+import com.wealth.manager.config.BusinessConfig
+
 /**
  * 哇时刻触发规则
  *
  * 规则1：哇时刻触发
- * 触发条件：savedAmount > 100 && savedAmount > avgLast4Weeks * 0.2
+ * 触发条件：savedAmount > MIN_SAVED_AMOUNT && savedAmount > avgLast4Weeks * SAVED_RATIO_THRESHOLD
  *
  * 来自：DashboardViewModel
  */
 object WowRule {
 
-    private const val MIN_SAVED_AMOUNT = 100.0
-    private const val SAVED_RATIO_THRESHOLD = 0.2
+    // 使用 BusinessConfig 中的统一配置
+    private val MIN_SAVED_AMOUNT = BusinessConfig.WOW_MIN_SAVED_AMOUNT
+    private val SAVED_RATIO_THRESHOLD = BusinessConfig.WOW_SAVED_RATIO_THRESHOLD
 
     /**
      * 判断是否触发哇时刻

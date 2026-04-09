@@ -19,6 +19,14 @@ android {
         // LLM API Key from gradle.properties (gradle.properties 不上传，仅本地开发使用)
         val llmApiKey = project.findProperty("LLM_API_KEY")?.toString() ?: ""
         buildConfigField("String", "LLM_API_KEY", "\"$llmApiKey\"")
+        
+        // API URLs
+        buildConfigField("String", "LLM_BASE_URL", "\"https://ark.cn-beijing.volces.com/api/coding/v3\"")
+        buildConfigField("String", "LLM_MODEL", "\"deepseek-v3.2\"")
+        buildConfigField("String", "EMBEDDING_API_URL", "\"http://82.157.16.215:5000/embeddings\"")
+        buildConfigField("String", "VERSION_URL", "\"http://101.201.67.78/version.txt\"")
+        buildConfigField("String", "APK_URL", "\"http://101.201.67.78/app-debug.apk\"")
+        buildConfigField("String", "LOG_REPORT_URL", "\"http://101.201.67.78/log/report\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

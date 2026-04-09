@@ -1,16 +1,19 @@
 package com.wealth.manager.rules
 
+import com.wealth.manager.config.BusinessConfig
+
 /**
  * 结构偏向规则
  *
  * 规则3：结构偏向
- * 触发条件：top.percentage > 0.4
+ * 触发条件：topPercentage > PERCENTAGE_THRESHOLD
  *
  * 来自：InsightsViewModel
  */
 object StructureRule {
 
-    private const val PERCENTAGE_THRESHOLD = 0.4f
+    // 使用 BusinessConfig 中的统一配置
+    private val PERCENTAGE_THRESHOLD = BusinessConfig.PERCENTAGE_THRESHOLD
 
     /**
      * 判断是否存在结构偏向
@@ -24,9 +27,6 @@ object StructureRule {
 
     /**
      * 触发结构偏向时构建的洞察
-     *
-     * @param topCategoryName 最大分类名称
-     * @param topPercentage 最大分类占比（0.0 ~ 1.0）
      */
     fun buildInsight(topCategoryName: String, topPercentage: Float): Insight {
         return Insight(

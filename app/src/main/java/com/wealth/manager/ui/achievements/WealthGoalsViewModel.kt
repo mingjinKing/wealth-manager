@@ -3,6 +3,7 @@ package com.wealth.manager.ui.achievements
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.wealth.manager.config.BusinessConfig
 import com.wealth.manager.data.dao.AssetDao
 import com.wealth.manager.data.dao.BudgetDao
 import com.wealth.manager.data.dao.CategoryDao
@@ -69,9 +70,9 @@ class WealthGoalsViewModel @Inject constructor(
             val configFlow = flow {
                 while(true) {
                     emit(Triple(
-                        prefs.getFloat("asset_goal", 100000f).toDouble(),
-                        prefs.getLong("goal_start_date", System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000),
-                        prefs.getLong("goal_date", System.currentTimeMillis() + 365L * 24 * 60 * 60 * 1000)
+                        prefs.getFloat("asset_goal", BusinessConfig.AMOUNT_DISPLAY_THRESHOLD.toFloat() * 10).toDouble(),
+                        prefs.getLong("goal_start_date", System.currentTimeMillis() - BusinessConfig.DEFAULT_HISTORY_RANGE_MS),
+                        prefs.getLong("goal_date", System.currentTimeMillis() + BusinessConfig.YEAR_GOAL_RANGE_MS)
                     ))
                     kotlinx.coroutines.delay(1000) // 简单轮询配置变更，或者在更新时触发 emit
                 }
@@ -221,7 +222,7 @@ data class WealthGoalsState(
     val isAssetVisible: Boolean = true,
     val isGoalVisible: Boolean = true,
     val isBudgetVisible: Boolean = true,
-    val assetGoal: Double = 100000.0,
+    val assetGoal: Double = BusinessConfig.AMOUNT_DISPLAY_THRESHOLD.toDouble() * 10,
     val goalStartDate: Long = 0,
     val goalDate: Long = 0,
     val trendPoints: List<TrendPoint> = emptyList()

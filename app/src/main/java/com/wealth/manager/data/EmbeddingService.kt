@@ -1,6 +1,7 @@
 package com.wealth.manager.data
 
 import android.util.Log
+import com.wealth.manager.config.AppConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -8,22 +9,20 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
-import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Embedding 向量服务 - 性能加固版
- * 统一使用共享的 OkHttpClient 单例
+ * Embedding 向量服务
+ * 使用 AppConfig 中的统一配置
  */
 @Singleton
 class EmbeddingService @Inject constructor(
-    private val client: OkHttpClient // 注入全局单例连接池
+    private val client: OkHttpClient
 ) {
     
     companion object {
         private const val TAG = "EmbeddingService"
-        private const val EMBEDDING_API = "http://82.157.16.215:5000/embeddings"
         private const val DIMENSION = 768
         
         // 静态工具方法保留，方便转换数据
@@ -63,7 +62,7 @@ class EmbeddingService @Inject constructor(
             val requestBody = jsonBody.toString().toRequestBody("application/json".toMediaType())
             
             val request = Request.Builder()
-                .url(EMBEDDING_API)
+                .url(AppConfig.EMBEDDING_API_URL)
                 .post(requestBody)
                 .build()
             

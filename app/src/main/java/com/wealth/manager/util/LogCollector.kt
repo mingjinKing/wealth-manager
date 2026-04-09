@@ -2,6 +2,8 @@ package com.wealth.manager.util
 
 import android.content.Context
 import android.util.Log
+import com.wealth.manager.config.AppConfig
+import com.wealth.manager.config.BusinessConfig
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -19,10 +21,9 @@ import javax.inject.Singleton
  */
 @Singleton
 class LogCollector @Inject constructor(
-    private val client: OkHttpClient // 注入全局单例 OkHttpClient
+    private val client: OkHttpClient
 ) {
     companion object {
-        private const val MAX_LOGS = 500
         private const val TAG = "LogCollector"
         
         // 静态日志缓冲区，支持静态方法记录
@@ -40,7 +41,7 @@ class LogCollector @Inject constructor(
         fun log(tag: String, level: String = "D", message: String) {
             val entry = LogEntry(tag = tag, level = level, message = message)
             logs.offer(entry)
-            while (logs.size > MAX_LOGS) logs.poll()
+            while (logs.size > BusinessConfig.MAX_LOGS) logs.poll()
             when (level) {
                 "E" -> Log.e(tag, message)
                 "W" -> Log.w(tag, message)
@@ -80,7 +81,7 @@ class LogCollector @Inject constructor(
         
         val requestBody = body.toRequestBody("application/json".toMediaType())
         val request = Request.Builder()
-            .url("http://101.201.67.78/log/report")
+            .url(AppConfig.LOG_REPORT_URL)
             .post(requestBody)
             .build()
         

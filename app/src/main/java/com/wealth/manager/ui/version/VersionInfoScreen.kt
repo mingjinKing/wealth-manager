@@ -26,6 +26,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wealth.manager.config.AppConfig
+import com.wealth.manager.config.NetworkConfig
 import com.wealth.manager.ui.theme.Primary
 import com.wealth.manager.ui.theme.Surface
 import kotlinx.coroutines.Dispatchers
@@ -94,11 +96,10 @@ fun VersionInfoScreen(
         scope.launch {
             try {
                 withContext(Dispatchers.IO) {
-                    val versionUrl = "http://101.201.67.78/version.txt"
-                    val url = URL(versionUrl)
+                    val url = URL(AppConfig.VERSION_CHECK_URL)
                     val conn = url.openConnection() as HttpURLConnection
-                    conn.connectTimeout = 15000  // 增加到15秒
-                    conn.readTimeout = 15000    // 增加到15秒
+                    conn.connectTimeout = NetworkConfig.VERSION_CONNECT_TIMEOUT * 1000
+                    conn.readTimeout = NetworkConfig.VERSION_READ_TIMEOUT * 1000
                     conn.instanceFollowRedirects = false // 禁用重定向，手动处理
                     try {
                         if (conn.responseCode == HttpURLConnection.HTTP_OK) {
@@ -134,11 +135,10 @@ fun VersionInfoScreen(
         
         scope.launch {
             try {
-                val apkUrl = "http://101.201.67.78/app-debug.apk"
-                val url = URL(apkUrl)
+                val url = URL(AppConfig.APK_DOWNLOAD_URL)
                 val conn = url.openConnection() as HttpURLConnection
-                conn.connectTimeout = 15000
-                conn.readTimeout = 15000
+                conn.connectTimeout = NetworkConfig.VERSION_CONNECT_TIMEOUT * 1000
+                conn.readTimeout = NetworkConfig.VERSION_READ_TIMEOUT * 1000
                 
                 val fileName = "update_${latestVersion.value}.apk"
                 val apkFile = File(context.cacheDir, fileName)
