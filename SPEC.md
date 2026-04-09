@@ -32,7 +32,7 @@
 
 ---
 
-## 3. Room 数据库设计（9张表）
+## 3. Room 数据库设计（8张表）
 
 > ⚠️ **以代码实现为准**，文档如有不一致请以代码为准并更新本文档。
 
@@ -125,27 +125,14 @@
 |------|------|------|
 | id | String | 主键，UUID |
 | key | String | 记忆键 |
-| value | String | JSON 结构化值 |
+| value | String | JSON 结构化值（含 `is_long_term` 标记）|
 | summary | String | 人类可读摘要 |
-| source | String | 来源：user_input / ai_analysis / auto_extract |
+| source | String | 来源：user_input / ai_analysis |
 | confidence | Float | 置信度 0-1 |
 | createdAt | Long | 创建时间 |
 | updatedAt | Long | 更新时间 |
 
-### 3.9 ExtractedFactEntity（关键信息提取表）
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | String | 主键，UUID |
-| key | String | 记忆键 |
-| value | String | JSON 结构化值 |
-| summary | String | 人类可读摘要（**向量嵌入对象**）|
-| source | String | 来源：auto_extract |
-| confidence | Float | 置信度 0-1 |
-| sourceMessageId | String? | 溯源消息 ID |
-| expiresAt | Long? | 过期时间（可选）|
-| createdAt | Long | 创建时间 |
-| updatedAt | Long | 更新时间 |
+> **注**：v2.6 版本移除了独立的 `ExtractedFactEntity`，关键信息提取功能整合到 `MemoryEntity` 中，通过 `value` 字段中的 `is_long_term` 标记区分长期记忆和短期记忆。
 
 ---
 
