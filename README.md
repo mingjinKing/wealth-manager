@@ -1,5 +1,9 @@
 # 💰 消费透视镜 (Consumer Telescope)
 
+[![Android CI](https://github.com/mingjinKing/wealth-manager/actions/workflows/android.yml/badge.svg)](https://github.com/mingjinKing/wealth-manager/actions)
+[![Unit Tests](https://img.shields.io/badge/Tests-53%20passed-brightgreen)](https://github.com/mingjinKing/wealth-manager/actions)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 > 财富管理行为层的智能记账工具 —— 记账的"第二眼"
 
 ## 一句话定位
