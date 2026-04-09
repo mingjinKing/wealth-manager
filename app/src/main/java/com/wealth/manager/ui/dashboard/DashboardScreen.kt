@@ -132,7 +132,7 @@ fun DashboardScreen(
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(DesignTokens.Spacing.md)
         ) {
             item {
                 MonthOverviewCard(
@@ -147,7 +147,7 @@ fun DashboardScreen(
 
             state.wowPreview?.let { wow ->
                 item {
-                    Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    Box(modifier = Modifier.padding(horizontal = DesignTokens.Spacing.md)) {
                         WowPreviewCard(wowPreview = wow)
                     }
                 }
@@ -158,7 +158,7 @@ fun DashboardScreen(
             } else {
                 state.dailyExpenses.forEach { daily ->
                     item(key = daily.dateMillis) {
-                        Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                        Box(modifier = Modifier.padding(horizontal = DesignTokens.Spacing.md)) {
                             DailyExpenseCard(
                                 dailyExpense = daily,
                                 onExpenseClick = { onNavigateToAdd(it.expense.id) },
@@ -172,7 +172,7 @@ fun DashboardScreen(
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(80.dp)) }
+            item { Spacer(modifier = Modifier.height(DesignTokens.Spacing.xxl)) }
         }
 
         if (showDeleteDialog && selectedExpense != null) {
@@ -200,14 +200,14 @@ fun DashboardScreen(
 fun WowPreviewCard(wowPreview: WowPreview) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(DesignTokens.Card.radius),
         colors = CardDefaults.cardColors(containerColor = Surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column(modifier = Modifier.padding(DesignTokens.Card.padding)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(text = "✨", fontSize = 18.sp)
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(DesignTokens.Spacing.sm))
                 Text(
                     text = "钱包守护成功！",
                     style = MaterialTheme.typography.titleMedium,
@@ -216,7 +216,7 @@ fun WowPreviewCard(wowPreview: WowPreview) {
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(DesignTokens.Spacing.md))
 
             Text(
                 text = "本周少花 ¥${NumberFormat.getNumberInstance(Locale.CHINA).format(wowPreview.savedAmount)}",
@@ -277,9 +277,9 @@ fun MonthOverviewCard(
 
 @Composable
 private fun EmptyListPlaceholder() {
-    Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Surface)) {
-            Box(modifier = Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
+    Box(modifier = Modifier.padding(horizontal = DesignTokens.Spacing.md)) {
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(DesignTokens.Card.radius), colors = CardDefaults.cardColors(containerColor = Surface)) {
+            Box(modifier = Modifier.fillMaxWidth().padding(DesignTokens.Spacing.xxl), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("暂无记账记录", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
                     Text("点击 + 开始记账", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
@@ -307,16 +307,16 @@ private fun AiInsightDialog(isAnalyzing: Boolean, text: String?, onDismiss: () -
         title = { 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("💡", style = MaterialTheme.typography.titleLarge)
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(DesignTokens.Spacing.sm))
                 Text("旺财智能洞察", fontWeight = FontWeight.Bold)
             }
         },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 if (isAnalyzing) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(DesignTokens.Spacing.lg), horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(DesignTokens.Spacing.md))
                         Text("旺财正在复盘您的消费...", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                     }
                 } else {
@@ -330,16 +330,16 @@ private fun AiInsightDialog(isAnalyzing: Boolean, text: String?, onDismiss: () -
 
 @Composable
 fun DailyExpenseCard(dailyExpense: DailyExpense, onExpenseClick: (ExpenseItem) -> Unit, onExpenseLongClick: (ExpenseItem) -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Surface) ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(DesignTokens.Card.radius), colors = CardDefaults.cardColors(containerColor = Surface) ) {
+        Column(modifier = Modifier.padding(DesignTokens.Spacing.md)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(dailyExpense.dateLabel, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium)
                 Text("¥ ${NumberFormat.getNumberInstance(Locale.CHINA).format(dailyExpense.dayTotal)}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium)
             }
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(DesignTokens.Spacing.md))
             dailyExpense.expenses.forEach { item ->
                 DailyExpenseItem(item = item, onClick = { onExpenseClick(item) }, onLongClick = { onExpenseLongClick(item) })
-                if (item != dailyExpense.expenses.last()) Spacer(modifier = Modifier.height(8.dp))
+                if (item != dailyExpense.expenses.last()) Spacer(modifier = Modifier.height(DesignTokens.Spacing.sm))
             }
         }
     }
@@ -349,10 +349,10 @@ fun DailyExpenseCard(dailyExpense: DailyExpense, onExpenseClick: (ExpenseItem) -
 @Composable
 fun DailyExpenseItem(item: ExpenseItem, onClick: () -> Unit, onLongClick: () -> Unit) {
     val isIncome = item.category.type == "INCOME"
-    Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(DesignTokens.Spacing.sm)).combinedClickable(onClick = onClick, onLongClick = onLongClick).padding(vertical = DesignTokens.Spacing.xs), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.size(32.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) { Text(item.category.icon, style = MaterialTheme.typography.bodySmall) }
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(DesignTokens.Spacing.sm + DesignTokens.Spacing.xs))
             Column {
                 Text(item.category.name, style = MaterialTheme.typography.bodyMedium)
                 if (item.expense.note.isNotBlank()) Text(item.expense.note, style = MaterialTheme.typography.bodySmall, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
