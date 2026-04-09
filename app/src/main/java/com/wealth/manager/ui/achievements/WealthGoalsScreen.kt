@@ -412,7 +412,7 @@ fun TrendForecastCard(points: List<TrendPoint>, onShowHelp: () -> Unit) {
             }
 
             Box(modifier = Modifier.fillMaxWidth().height(200.dp).padding(start = 40.dp, bottom = 20.dp)) {
-                TrendLineChart(points = points, primaryColor = primaryColor)
+                TrendLineChart(points = points, primaryColor = primaryColor, outlineColor = MaterialTheme.colorScheme.outline)
             }
             
             Row(
@@ -420,7 +420,7 @@ fun TrendForecastCard(points: List<TrendPoint>, onShowHelp: () -> Unit) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.size(8.dp).background(Color.Gray.copy(alpha = 0.5f), CircleShape))
+                    Box(modifier = Modifier.size(8.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), CircleShape))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("期望", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
                 }
@@ -435,7 +435,7 @@ fun TrendForecastCard(points: List<TrendPoint>, onShowHelp: () -> Unit) {
 }
 
 @Composable
-fun TrendLineChart(points: List<TrendPoint>, primaryColor: Color) {
+fun TrendLineChart(points: List<TrendPoint>, primaryColor: Color, outlineColor: Color = MaterialTheme.colorScheme.outline) {
     if (points.isEmpty()) return
     
     val maxVal = (points.maxOf { it.expected + (it.actual ?: 0.0) } * 1.2).toFloat().coerceAtLeast(1f)
@@ -451,7 +451,7 @@ fun TrendLineChart(points: List<TrendPoint>, primaryColor: Color) {
             val y = height - (i.toFloat() / ySteps * height)
             val value = (i.toFloat() / ySteps * maxVal).toInt()
             drawLine(
-                color = Color.LightGray.copy(alpha = 0.3f),
+                color = outlineColor.copy(alpha = 0.3f),
                 start = Offset(0f, y),
                 end = Offset(width, y),
                 strokeWidth = 1.dp.toPx()
@@ -490,7 +490,7 @@ fun TrendLineChart(points: List<TrendPoint>, primaryColor: Color) {
         }
         drawPath(
             path = expectedPath,
-            color = Color.Gray.copy(alpha = 0.5f),
+            color = outlineColor.copy(alpha = 0.5f),
             style = Stroke(width = 2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f))
         )
 
