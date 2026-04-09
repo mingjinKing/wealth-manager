@@ -445,7 +445,7 @@ private fun CategoryItem(
             Text(category.name, style = MaterialTheme.typography.bodyLarge)
             if (category.isDefault) {
                 Spacer(Modifier.width(8.dp))
-                Surface(color = Color.LightGray.copy(alpha = 0.2f), shape = RoundedCornerShape(4.dp)) {
+                Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f), shape = RoundedCornerShape(4.dp)) {
                     Text("默认", modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall, color = TextSecondary)
                 }
             }
