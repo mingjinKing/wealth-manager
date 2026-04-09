@@ -86,6 +86,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.wealth.manager.data.entity.AssetEntity
 import com.wealth.manager.data.entity.CategoryEntity
 import com.wealth.manager.ui.theme.Background
+import com.wealth.manager.ui.theme.DesignTokens
 import com.wealth.manager.ui.theme.Surface
 import com.wealth.manager.ui.theme.TextSecondary
 import com.wealth.manager.ui.theme.ThemeViewModel
@@ -261,7 +262,7 @@ fun AddExpenseScreen(
                             text = if (isEditMode) "修改账单" else "添加账单",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = Color.Black
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     },
                     navigationIcon = {
@@ -283,7 +284,7 @@ fun AddExpenseScreen(
                             Text(
                                 text = formatDateLabel(selectedDateMillis),
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color.Black,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontWeight = FontWeight.Medium
                             )
                         }
@@ -296,7 +297,7 @@ fun AddExpenseScreen(
                 TabRow(
                     selectedTabIndex = selectedTab,
                     containerColor = Color.Transparent,
-                    contentColor = Color.Black,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
                     divider = {},
                     indicator = { tabPositions ->
                         TabRowDefaults.SecondaryIndicator(
@@ -308,12 +309,12 @@ fun AddExpenseScreen(
                     Tab(
                         selected = selectedTab == 0,
                         onClick = { viewModel.setTab(0); selectedCategoryId = null },
-                        text = { Text("添加账单", fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal, color = Color.Black) }
+                        text = { Text("添加账单", fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal, color = MaterialTheme.colorScheme.onSurface) }
                     )
                     Tab(
                         selected = selectedTab == 1,
                         onClick = { viewModel.setTab(1); selectedCategoryId = null },
-                        text = { Text("添加收入", fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal, color = Color.Black) }
+                        text = { Text("添加收入", fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal, color = MaterialTheme.colorScheme.onSurface) }
                     )
                 }
             }
