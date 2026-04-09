@@ -44,10 +44,10 @@ import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AchievementsScreen(
+fun WealthGoalsScreen(
     onNavigateBack: () -> Unit = {},
     onNavigateToAssets: () -> Unit = {},
-    viewModel: AchievementsViewModel = hiltViewModel(),
+    viewModel: WealthGoalsViewModel = hiltViewModel(),
     themeViewModel: ThemeViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()

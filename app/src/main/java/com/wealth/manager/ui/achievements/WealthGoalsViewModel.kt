@@ -17,7 +17,7 @@ import java.util.*
 import javax.inject.Inject
 
 @HiltViewModel
-class AchievementsViewModel @Inject constructor(
+class WealthGoalsViewModel @Inject constructor(
     private val expenseDao: ExpenseDao,
     private val assetDao: AssetDao,
     private val budgetDao: BudgetDao,
@@ -32,8 +32,8 @@ class AchievementsViewModel @Inject constructor(
     private val _isGoalVisible = MutableStateFlow(prefs.getBoolean("is_goal_visible", true))
     private val _isBudgetVisible = MutableStateFlow(prefs.getBoolean("is_budget_visible", true))
 
-    private val _state = MutableStateFlow(AchievementsState())
-    val state: StateFlow<AchievementsState> = _state.asStateFlow()
+    private val _state = MutableStateFlow(WealthGoalsState())
+    val state: StateFlow<WealthGoalsState> = _state.asStateFlow()
 
     init {
         loadData()
@@ -111,7 +111,7 @@ class AchievementsViewModel @Inject constructor(
 
                 val trendPoints = calculateTrendPoints(netWorth, goal, start, end)
 
-                AchievementsState(
+                WealthGoalsState(
                     isLoading = false,
                     netWorth = netWorth,
                     monthlyBudget = monthlyBudget?.amount ?: 0.0,
@@ -210,7 +210,7 @@ class AchievementsViewModel @Inject constructor(
 
 data class TrendPoint(val label: String, val expected: Double, val actual: Double?)
 
-data class AchievementsState(
+data class WealthGoalsState(
     val isLoading: Boolean = true,
     val netWorth: Double = 0.0,
     val monthlyBudget: Double = 0.0,

@@ -7,7 +7,7 @@ sealed class Screen(val route: String) {
         fun createRoute(expenseId: Long): String = "add/$expenseId"
     }
     data object Insights : Screen("insights")
-    data object Achievements : Screen("achievements")
+    data object WealthGoals : Screen("wealth-goals")
     data object How : Screen("how-to-spend")
     data object CategoryManage : Screen("category-manage")
     data object Import : Screen("import")

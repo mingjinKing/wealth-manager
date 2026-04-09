@@ -25,7 +25,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.wealth.manager.data.entity.AssetEntity
 import com.wealth.manager.data.entity.AssetType
-import com.wealth.manager.ui.achievements.AchievementsViewModel
+import com.wealth.manager.ui.achievements.WealthGoalsViewModel
 import com.wealth.manager.ui.theme.Surface
 import com.wealth.manager.ui.theme.TextSecondary
 import com.wealth.manager.ui.theme.ThemeViewModel
@@ -37,7 +37,7 @@ import java.util.Locale
 fun AssetManageScreen(
     onNavigateBack: () -> Unit,
     viewModel: AssetViewModel = hiltViewModel(),
-    achievementsViewModel: AchievementsViewModel = hiltViewModel(),
+    achievementsViewModel: WealthGoalsViewModel = hiltViewModel(),
     themeViewModel: ThemeViewModel = hiltViewModel()
 ) {
     val assets by viewModel.assets.collectAsState()

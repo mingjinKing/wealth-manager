@@ -30,7 +30,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.wealth.manager.R
-import com.wealth.manager.ui.achievements.AchievementsScreen
+import com.wealth.manager.ui.achievements.WealthGoalsScreen
 import com.wealth.manager.ui.add.AddExpenseScreen
 import com.wealth.manager.ui.assets.AssetManageScreen
 import com.wealth.manager.ui.category.CategoryManageScreen
@@ -77,7 +77,7 @@ val bottomNavItems = listOf(
         label = "攒点钱",
         selectedIcon = Icons.Filled.Star,
         unselectedIcon = Icons.Outlined.Star,
-        route = Screen.Achievements.route
+        route = Screen.WealthGoals.route
     )
 )
 
@@ -414,8 +414,8 @@ fun AppNavigation() {
                         onNavigateBack = { navController.popBackStack() }
                     )
                 }
-                composable(Screen.Achievements.route) {
-                    AchievementsScreen(
+                composable(Screen.WealthGoals.route) {
+                    WealthGoalsScreen(
                         onNavigateBack = { navController.popBackStack() },
                         onNavigateToAssets = { navController.navigate(Screen.AssetManage.route) }
                     )
