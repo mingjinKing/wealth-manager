@@ -332,7 +332,7 @@ private fun PreviewContent(
                             modifier = Modifier
                                 .size(32.dp)
                                 .clip(CircleShape)
-                                .background(Color(android.graphics.Color.parseColor("#f0f0f0"))),
+                                .background(MaterialTheme.colorScheme.surfaceVariant),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(text = record.categoryIcon, style = MaterialTheme.typography.bodyMedium)
