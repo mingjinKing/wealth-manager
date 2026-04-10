@@ -71,6 +71,42 @@ object DesignTokens {
         val paddingHorizontal = 16.dp
         val paddingVertical = 12.dp
     }
+
+    // ==================== 动画时长 ====================
+    object Animation {
+        val Fast = 150 // 快速动画（按钮反馈）
+        val Normal = 300 // 标准动画（页面过渡）
+        val Slow = 500 // 慢速动画（对话框）
+        val ExtraSlow = 800 // 极慢动画（加载骨架屏）
+    }
+
+    // ==================== 阴影层级 ====================
+    object Elevation {
+        val None = 0.dp
+        val Low = 2.dp   // 卡片默认
+        val Medium = 4.dp // 悬浮按钮
+        val High = 8.dp   // 对话框
+        val ExtraHigh = 16.dp // 弹出菜单
+    }
+
+    // ==================== 图标尺寸 ====================
+    object Icon {
+        val Small = 16.dp   // 小图标（标签内）
+        val Normal = 24.dp  // 标准图标
+        val Medium = 32.dp  // 中等图标
+        val Large = 48.dp  // 大图标（空状态）
+        val ExtraLarge = 64.dp // 超大图标（loading）
+    }
+
+    // ==================== 圆角尺寸 ====================
+    object Radius {
+        val Small = 4.dp    // 小圆角（输入框、标签）
+        val Medium = 8.dp    // 中圆角（按钮）
+        val Normal = 12.dp   // 标准圆角（卡片）
+        val Large = 16.dp   // 大圆角（对话框）
+        val ExtraLarge = 24.dp // 特大圆角（底部弹窗）
+        val Circle = 9999.dp // 完整圆角（FAB）
+    }
 }
 
 /**
