@@ -1,0 +1,210 @@
+name: Feishu Auto Sync
+
+on:
+  # 重要Git事件触发
+  push:
+    branches: [ main ]
+    paths:
+      - 'app/src/main/**'
+      - 'app/src/test/**'
+      - 'docs/**'
+      - 'SPEC.md'
+  
+  pull_request:
+    types: [ closed, merged ]
+  
+  # 手动触发
+  workflow_dispatch:
+    inputs:
+      sync_type:
+        description: '同步类型'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+          - full
+          - requirements
+          - tasks
+          - metrics
+
+env:
+  OPENCLAW_PATH: '/Users/wangmj/.openclaw/workspace'
+  PROJECT_PATH: '/Users/wangmj/repository/wealth-manager'
+
+jobs:
+  analyze-and-sync:
+    name: Analyze Git Changes & Sync to Feishu
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取完整历史记录
+          
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+          
+      - name: Analyze Git changes
+        id: git_analysis
+        run: |
+          echo "=== 开始Git变更分析 ==="
+          
+          # 获取事件类型
+          EVENT_TYPE="${{ github.event_name }}"
+          echo "事件类型: $EVENT_TYPE"
+          
+          # 获取提交信息
+          if [ "$EVENT_TYPE" = "push" ]; then
+            COMMIT_MSG=$(git log -1 --pretty=format:"%s")
+            COMMIT_HASH=$(git rev-parse HEAD)
+            COMMIT_AUTHOR=$(git log -1 --pretty=format:"%an")
+            echo "最新提交: $COMMIT_MSG"
+            echo "提交哈希: $COMMIT_HASH"
+            echo "提交作者: $COMMIT_AUTHOR"
+            
+            # 提取提交类型
+            if [[ "$COMMIT_MSG" =~ ^feat ]]; then
+              COMMIT_TYPE="feature"
+            elif [[ "$COMMIT_MSG" =~ ^fix ]]; then
+              COMMIT_TYPE="fix"
+            elif [[ "$COMMIT_MSG" =~ ^refactor ]]; then
+              COMMIT_TYPE="refactor"
+            elif [[ "$COMMIT_MSG" =~ ^test ]]; then
+              COMMIT_TYPE="test"
+            elif [[ "$COMMIT_MSG" =~ ^docs ]]; then
+              COMMIT_TYPE="docs"
+            else
+              COMMIT_TYPE="other"
+            fi
+            echo "提交类型: $COMMIT_TYPE"
+            
+            # 分析变更文件
+            CHANGED_FILES=$(git diff --name-only HEAD~1..HEAD)
+            KOTLIN_CHANGES=$(echo "$CHANGED_FILES" | grep '\.kt$' | wc -l | tr -d ' ')
+            XML_CHANGES=$(echo "$CHANGED_FILES" | grep '\.xml$' | wc -l | tr -d ' ')
+            
+            echo "变更文件数: $(echo "$CHANGED_FILES" | wc -l)"
+            echo "Kotlin文件变更: $KOTLIN_CHANGES"
+            echo "XML文件变更: $XML_CHANGES"
+            
+          elif [ "$EVENT_TYPE" = "pull_request" ]; then
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+            PR_TITLE="${{ github.event.pull_request.title }}"
+            PR_MERGED="${{ github.event.pull_request.merged }}"
+            echo "Pull Request: #$PR_NUMBER"
+            echo "标题: $PR_TITLE"
+            echo "已合并: $PR_MERGED"
+          fi
+          
+          # 生成分析摘要
+          echo "::set-output name=commit_type::$COMMIT_TYPE"
+          echo "::set-output name=changed_kotlin::$KOTLIN_CHANGES"
+          echo "::set-output name=changed_xml::$XML_CHANGES"
+          
+      - name: Generate analysis report
+        id: generate_report
+        run: |
+          echo "=== 生成分析报告 ==="
+          
+          # 创建分析报告
+          ANALYSIS_REPORT=$(cat <<EOF
+          {
+            "event": {
+              "type": "${{ github.event_name }}",
+              "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            },
+            "git": {
+              "commit_type": "${{ steps.git_analysis.outputs.commit_type }}",
+              "kotlin_changes": "${{ steps.git_analysis.outputs.changed_kotlin }}",
+              "xml_changes": "${{ steps.git_analysis.outputs.changed_xml }}"
+            },
+            "sync": {
+              "triggered_by": "github_${{ github.event_name }}",
+              "sync_type": "${{ github.event.inputs.sync_type || 'auto' }}",
+              "timestamp": "$(date +%s)"
+            }
+          }
+          EOF
+          )
+          
+          echo "分析报告:"
+          echo "$ANALYSIS_REPORT" | jq .
+          
+          # 保存报告文件
+          echo "$ANALYSIS_REPORT" > analysis_report.json
+          echo "::set-output name=report_path::analysis_report.json"
+          
+      - name: Upload analysis report
+        uses: actions/upload-artifact@v4
+        with:
+          name: feishu-sync-report
+          path: analysis_report.json
+          retention-days: 7
+          
+      - name: Notify sync completion
+        run: |
+          echo "=== 同步分析完成 ==="
+          echo "事件: ${{ github.event_name }}"
+          echo "提交类型: ${{ steps.git_analysis.outputs.commit_type }}"
+          echo "Kotlin变更: ${{ steps.git_analysis.outputs.changed_kotlin }}"
+          echo "XML变更: ${{ steps.git_analysis.outputs.changed_xml }}"
+          echo ""
+          echo "**注意**: 实际飞书同步需要在本地环境中执行"
+          echo "因为飞书API需要访问本地OpenClaw环境"
+          echo ""
+          echo "分析报告已保存，将在下一次定时同步时使用"
+          
+      - name: Create sync trigger file
+        if: always()
+        run: |
+          # 创建触发文件，供本地定时任务读取
+          TRIGGER_FILE="/tmp/feishu_sync_trigger_$(date +%Y%m%d_%H%M%S).json"
+          
+          TRIGGER_DATA=$(cat <<EOF
+          {
+            "github_event": {
+              "type": "${{ github.event_name }}",
+              "repository": "${{ github.repository }}",
+              "ref": "${{ github.ref }}",
+              "sha": "${{ github.sha }}",
+              "workflow": "${{ github.workflow }}"
+            },
+            "analysis": {
+              "commit_type": "${{ steps.git_analysis.outputs.commit_type }}",
+              "file_changes": {
+                "kotlin": "${{ steps.git_analysis.outputs.changed_kotlin }}",
+                "xml": "${{ steps.git_analysis.outputs.changed_xml }}"
+              }
+            },
+            "trigger_time": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "sync_needed": true
+          }
+          EOF
+          )
+          
+          echo "$TRIGGER_DATA" > "$TRIGGER_FILE"
+          echo "触发文件已创建: $TRIGGER_FILE"
+          
+      - name: Summary
+        run: |
+          echo "## 🎯 GitHub Actions 飞书同步分析完成"
+          echo ""
+          echo "### 分析结果:"
+          echo "- **事件类型**: ${{ github.event_name }}"
+          echo "- **提交类型**: ${{ steps.git_analysis.outputs.commit_type }}"
+          echo "- **代码变更**: Kotlin(${{ steps.git_analysis.outputs.changed_kotlin }})个，XML(${{ steps.git_analysis.outputs.changed_xml }})个"
+          echo ""
+          echo "### 下一步:"
+          echo "1. 定时同步任务将读取触发文件"
+          echo "2. 根据分析结果更新飞书多维表格"
+          echo "3. 发送状态更新通知"
+          echo ""
+          echo "**报告文件已保存至 artifacts**"
