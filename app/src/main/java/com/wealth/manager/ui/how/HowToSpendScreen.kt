@@ -241,10 +241,10 @@ private fun HowToSpendTopBar(onNewConversation: () -> Unit, onHistoryClick: () -
         title = { Text("💭 怎么花", fontWeight = FontWeight.Bold) }, 
         actions = {
             IconButton(onClick = onNewConversation) { 
-                Icon(Icons.Default.Add, "新建", tint = Color.Black.copy(0.6f)) 
+                Icon(Icons.Default.Add, "新建", tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)) 
             }
             IconButton(onClick = onHistoryClick) { 
-                Icon(Icons.Default.History, "历史", tint = Color.Black.copy(0.6f)) 
+                Icon(Icons.Default.History, "历史", tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)) 
             }
         }, 
         colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -278,7 +278,7 @@ private fun UserMessageBubble(content: String) {
     val ctx = LocalContext.current
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
         Surface(shape = RoundedCornerShape(16.dp, 4.dp, 16.dp, 16.dp), color = MaterialTheme.colorScheme.primary, modifier = Modifier.combinedClickable(onClick = {}, onLongClick = { cm.setText(AnnotatedString(content)); Toast.makeText(ctx, "已复制", Toast.LENGTH_SHORT).show() })) {
-            Text(content, modifier = Modifier.padding(12.dp), color = Color.White)
+            Text(content, modifier = Modifier.padding(12.dp), color = MaterialTheme.colorScheme.onPrimary)
         }
     }
 }
@@ -348,7 +348,7 @@ private fun HowToSpendInput(text: String, onTextChange: (String) -> Unit, onSend
             )
             Spacer(modifier = Modifier.width(8.dp))
             FilledIconButton(onClick = onSendClick, modifier = Modifier.size(48.dp), shape = CircleShape) {
-                Icon(imageVector = Icons.AutoMirrored.Filled.Send, contentDescription = "发送", tint = Color.White)
+                Icon(imageVector = Icons.AutoMirrored.Filled.Send, contentDescription = "发送", tint = MaterialTheme.colorScheme.onPrimary)
             }
         }
     }
