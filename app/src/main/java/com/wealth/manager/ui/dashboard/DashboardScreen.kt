@@ -36,6 +36,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FabPosition
 import androidx.compose.material3.FloatingActionButton
+import com.wealth.manager.ui.components.EnhancedFAB
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -119,11 +120,10 @@ fun DashboardScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
+            EnhancedFAB(
                 onClick = { onNavigateToAdd(null) },
-                containerColor = MaterialTheme.colorScheme.primary,
-                shape = CircleShape
-            ) { Icon(Icons.Default.Add, "记账") }
+                pulse = true
+            ) { Icon(Icons.Default.Add, "记账", tint = Color.White) }
         },
         floatingActionButtonPosition = FabPosition.Center
     ) { paddingValues ->

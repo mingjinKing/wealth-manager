@@ -32,6 +32,8 @@ import com.wealth.manager.ui.theme.Income
 import com.wealth.manager.ui.theme.Surface
 import com.wealth.manager.ui.theme.TextSecondary
 import com.wealth.manager.ui.theme.Warning
+import com.wealth.manager.ui.theme.DesignTokens
+import com.wealth.manager.ui.components.SkeletonLoading
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -496,12 +498,14 @@ private fun AiAnalysisResultCard(
 
 @Composable
 private fun AiAnalysisLoadingCard(status: String) {
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f))) {
-        Column(modifier = Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator(modifier = Modifier.size(32.dp), strokeWidth = 3.dp)
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(text = status.ifEmpty { "旺财正在通过数据库复盘您的消费..." }, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
-        }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        SkeletonLoading(height = 100)
+        Spacer(modifier = Modifier.height(DesignTokens.Spacing.md))
+        SkeletonLoading(height = 60)
+        Spacer(modifier = Modifier.height(DesignTokens.Spacing.md))
+        SkeletonLoading(height = 80)
+        Spacer(modifier = Modifier.height(DesignTokens.Spacing.sm))
+        Text(text = status.ifEmpty { "旺财正在通过数据库复盘您的消费..." }, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
     }
 }
 
