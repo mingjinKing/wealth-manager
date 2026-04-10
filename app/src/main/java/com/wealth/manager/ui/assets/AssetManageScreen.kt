@@ -30,6 +30,7 @@ import com.wealth.manager.ui.theme.Surface
 import com.wealth.manager.ui.theme.TextSecondary
 import com.wealth.manager.ui.theme.ThemeViewModel
 import com.wealth.manager.ui.theme.Warning
+import com.wealth.manager.ui.components.EnhancedCard
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -252,15 +253,11 @@ fun AssetItem(
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onEdit() },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Surface)
+    EnhancedCard(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onEdit
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(

@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.wealth.manager.data.entity.CategoryEntity
 import com.wealth.manager.ui.theme.Surface
+import com.wealth.manager.ui.components.EnhancedCard
 import com.wealth.manager.ui.theme.TextSecondary
 import com.wealth.manager.ui.theme.ThemeViewModel
 import com.wealth.manager.ui.theme.Warning
