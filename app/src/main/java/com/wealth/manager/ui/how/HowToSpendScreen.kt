@@ -1,5 +1,6 @@
 package com.wealth.manager.ui.how
 
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -33,6 +34,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.wealth.manager.ui.theme.*
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
 import androidx.compose.foundation.text.BasicText
@@ -253,18 +255,46 @@ private fun HowToSpendTopBar(onNewConversation: () -> Unit, onHistoryClick: () -
 
 @Composable
 private fun EmptyStateContent(quickEntries: List<QuickEntry>, onQuickEntryClick: (QuickEntry) -> Unit, modifier: Modifier) {
+    var visible by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(Unit) {
+        delay(100)
+        visible = true
+    }
+    
     Column(modifier = modifier.padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Spacer(Modifier.height(32.dp))
-        Text("💭", style = MaterialTheme.typography.displayMedium)
-        Text("你是想买什么？", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
-        Text("还是日常开销？", color = TextSecondary)
-        Spacer(Modifier.height(24.dp))
-        quickEntries.forEach { entry ->
-            Card(modifier = Modifier.fillMaxWidth().clickable { onQuickEntryClick(entry) }.padding(vertical = 6.dp), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Surface)) {
-                Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(entry.emoji, style = MaterialTheme.typography.titleLarge)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column { Text(entry.title, fontWeight = FontWeight.Medium); Text(entry.description, style = MaterialTheme.typography.bodySmall, color = TextSecondary) }
+        AnimatedVisibility(
+            visible = visible,
+            enter = scaleIn(tween(300)) + fadeIn()
+        ) {
+            Text("💭", style = MaterialTheme.typography.displayMedium)
+        }
+        Spacer(Modifier.height(DesignTokens.Spacing.md))
+        AnimatedVisibility(
+            visible = visible,
+            enter = fadeIn(tween(400, delayMillis = 100)) + slideInVertically(tween(400, delayMillis = 100)) { it / 4 }
+        ) {
+            Text("你是想买什么？", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
+        }
+        AnimatedVisibility(
+            visible = visible,
+            enter = fadeIn(tween(400, delayMillis = 200)) + slideInVertically(tween(400, delayMillis = 200)) { it / 4 }
+        ) {
+            Text("还是日常开销？", color = TextSecondary)
+        }
+        Spacer(Modifier.height(DesignTokens.Spacing.lg))
+        quickEntries.forEachIndexed { index, entry ->
+            AnimatedVisibility(
+                visible = visible,
+                enter = fadeIn(tween(300, delayMillis = 300 + index * 50)) + slideInVertically(tween(300, delayMillis = 300 + index * 50)) { it / 3 }
+            ) {
+                Card(modifier = Modifier.fillMaxWidth().clickable { onQuickEntryClick(entry) }.padding(vertical = 6.dp), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = Surface)) {
+                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(entry.emoji, style = MaterialTheme.typography.titleLarge)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column { Text(entry.title, fontWeight = FontWeight.Medium); Text(entry.description, style = MaterialTheme.typography.bodySmall, color = TextSecondary) }
+                    }
                 }
             }
         }
